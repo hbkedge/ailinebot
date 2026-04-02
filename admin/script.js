@@ -279,7 +279,13 @@ async function loadUserDetail(lineUserId, name, mode, avatar) {
     document.getElementById('viewer-name').innerText = name;
     document.getElementById('viewer-id').innerText = lineUserId.slice(-8) + '...';
     document.getElementById('chat-header-actions').classList.remove('hidden');
-    document.getElementById('admin-reply-bar').classList.remove('hidden'); // Show reply box
+
+    // Explicitly show the reply bar using style to override any CSS conflicts
+    const replyBar = document.getElementById('admin-reply-bar');
+    if (replyBar) {
+        replyBar.style.display = 'flex';
+        replyBar.classList.remove('hidden');
+    }
 
     const badge = document.getElementById('viewer-mode-badge');
     badge.innerText = mode === 'human' ? '真人服務中' : 'AI 防護中';
