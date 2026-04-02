@@ -74,26 +74,31 @@ async function initLiff() {
 
 // --- Navigation ---
 function showPage(pageId) {
+    console.log("Switching to page:", pageId);
     // Hide all pages
     document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+
     // Show target page
     const target = document.getElementById(pageId);
     if (target) {
         target.classList.add("active");
         state.currentPage = pageId;
+
+        // Scroll window and also specific container to top
+        window.scrollTo(0, 0);
+        target.scrollTop = 0;
     }
 
-    // Scroll to top
-    window.scrollTo(0, 0);
-
-    // Update Bottom Nav
-    updateBottomNav();
-
-    // If chat page, focus and scroll
-    if (pageId === "page-chat") {
+    // Auto-load data for specific pages
+    if (pageId === 'page-faq') loadFullFaqs();
+    if (pageId === 'page-home') loadHomeFaqs();
+    if (pageId === 'page-chat') {
         const msgContainer = document.getElementById("chat-messages");
-        msgContainer.scrollTop = msgContainer.scrollHeight;
+        if (msgContainer) msgContainer.scrollTop = msgContainer.scrollHeight;
     }
+
+    // Update Bottom Nav UI
+    updateBottomNav();
 }
 
 function updateBottomNav() {
