@@ -21,12 +21,16 @@
     }
 
     .page {
-      display: none;
+      display: none !important;
       min-height: 100vh;
     }
 
     .page.active {
-      display: block;
+      display: block !important;
+    }
+
+    .page.active.chat-layout {
+      display: flex !important;
     }
 
     .hidden {
@@ -177,7 +181,7 @@
   </div>
 
   <!-- 3. Chat Page -->
-  <div id="page-chat" class="page bg-slate-100 pb-20 flex flex-col h-screen">
+  <div id="page-chat" class="page bg-slate-100 pb-20 chat-layout flex-col h-screen">
     <header class="p-4 bg-white shadow-sm flex items-center space-x-3">
       <button onclick="showPage('page-home')" class="p-2 -ml-2">
         <i data-lucide="chevron-left" class="w-6 h-6"></i>
