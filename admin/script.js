@@ -3,7 +3,7 @@
  * Created by Antigravity AI
  */
 
-const GAS_URL = "https://script.google.com/macros/s/YOUR_GAS_DEPLOY_ID/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbxWA3boRKaltkq0bOb2YLNi3Cy1txtl7gupu9TbkwosOgk_11SerCk9yt1r6x5DynfPvQ/exec";
 
 let state = {
     currentSection: 'dashboard',
