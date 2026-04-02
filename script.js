@@ -1,457 +1,275 @@
 /**
- * AI Smart Customer Service - Admin Dashboard Logic
+ * AI Smart Customer Service - LIFF Frontend logic
  * Created by Antigravity AI
  */
 
+// --- Configuration ---
 const GAS_URL = "https://script.google.com/macros/s/AKfycbxWA3boRKaltkq0bOb2YLNi3Cy1txtl7gupu9TbkwosOgk_11SerCk9yt1r6x5DynfPvQ/exec";
+const LIFF_ID = "2009603120-IRZVrGzZ";
 
+// --- State Management ---
 let state = {
-    currentSection: 'dashboard',
-    stats: {},
-    faqs: [],
-    conversations: [],
-    tickets: [],
-    activeUserId: null,
-    loading: false,
-    ticketFilter: 'all'
+    user: null,
+    settings: {},
+    chat: [],
+    currentPage: "page-loading",
+    loading: false
 };
 
 // --- Initialization ---
 window.onload = function () {
     lucide.createIcons();
-    loadDashboard();
-
-    // Add input listeners
-    const ticketSearch = document.getElementById('ticket-search');
-    if (ticketSearch) ticketSearch.addEventListener('input', () => loadTickets());
-
-    const faqSearch = document.getElementById('faq-search');
-    if (faqSearch) faqSearch.addEventListener('input', () => renderFaqTable(state.faqs));
+    initLiff();
 };
 
-// --- Router ---
-function showSection(sectionId) {
-    // UI Update
-    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-    document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
-
-    document.getElementById(`section-${sectionId}`).classList.add('active');
-    document.querySelector(`[data-nav="${sectionId}"]`).classList.add('active');
-
-    document.getElementById('section-title').innerText = getSectionName(sectionId);
-    state.currentSection = sectionId;
-
-    // Data Load
-    if (sectionId === 'dashboard') loadDashboard();
-    if (sectionId === 'faq') loadFaqs();
-    if (sectionId === 'conversations') loadConversations();
-    if (sectionId === 'tickets') loadTickets();
-    if (sectionId === 'settings') loadSettings();
-}
-
-function getSectionName(id) {
-    const names = {
-        dashboard: '數據總覽',
-        faq: 'FAQ 管理',
-        conversations: '對話追蹤',
-        tickets: '工單中心',
-        settings: '系統設定'
-    };
-    return names[id] || id;
-}
-
-// --- Data Fetching ---
-async function apiCall(action, method = 'GET', data = {}) {
+async function initLiff() {
     try {
-        let response;
-        if (method === 'GET') {
-            const query = new URLSearchParams({ action, ...data }).toString();
-            response = await fetch(`${GAS_URL}?${query}`);
-        } else {
-            response = await fetch(GAS_URL, {
-                method: 'POST',
-                body: JSON.stringify({ action, data })
-            });
-        }
-        console.log(`API Call: ${action}`, data);
-        return await response.json();
-    } catch (err) {
-        console.error("API Call Error:", err);
-        return { success: false, message: "Network error: " + err.message };
-    }
-}
-
-// --- Dashboard Logic ---
-async function loadDashboard() {
-    const res = await apiCall('dashboard_stats');
-    if (res.success) {
-        state.stats = res.data;
-        document.getElementById('stat-users').innerText = res.data.totalUsers;
-        document.getElementById('stat-conversations').innerText = res.data.totalConversations;
-        document.getElementById('stat-hitrate').innerText = (res.data.faqHitRate * 100).toFixed(0) + '%';
-        document.getElementById('stat-tickets').innerText = res.data.activeTickets;
-    }
-
-    const topFaqRes = await apiCall('report_top_faq');
-    if (topFaqRes.success) {
-        const container = document.getElementById('top-faq-list');
-        container.innerHTML = "";
-        topFaqRes.data.forEach(faq => {
-            const row = document.createElement('div');
-            row.className = "flex items-center justify-between p-4 bg-gray-50 rounded-2xl";
-            row.innerHTML = `
-                <div class="flex items-center space-x-4">
-                    <span class="w-8 h-8 rounded-full bg-white flex items-center justify-center text-xs font-bold text-blue-600 shadow-sm">${faq.hit_count}</span>
-                    <span class="text-sm font-medium text-gray-700">${faq.question}</span>
-                </div>
-                <div class="text-[10px] uppercase font-bold text-gray-400">${faq.category}</div>
-            `;
-            container.appendChild(row);
-        });
-    }
-}
-
-// --- FAQ Logic ---
-async function loadFaqs() {
-    const res = await apiCall('faq_list');
-    if (res.success) {
-        state.faqs = res.data.items;
-        renderFaqTable(res.data.items);
-    }
-}
-
-function renderFaqTable(items) {
-    const tbody = document.getElementById('faq-table-body');
-    tbody.innerHTML = "";
-    items.forEach(item => {
-        const tr = document.createElement('tr');
-        tr.className = "hover:bg-gray-50/50 transition-all";
-        tr.innerHTML = `
-            <td class="px-6 py-4"><span class="px-2 py-1 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-lg uppercase">${item.category}</span></td>
-            <td class="px-6 py-4">
-                <div class="text-sm font-bold text-gray-800">${item.question}</div>
-                <div class="text-[10px] text-gray-400 mt-1">${item.keywords}</div>
-            </td>
-            <td class="px-6 py-4 w-1/3"><p class="text-xs text-gray-600 line-clamp-2">${item.answer}</p></td>
-            <td class="px-6 py-4"><span class="text-xs font-mono text-gray-400">${item.priority}</span></td>
-            <td class="px-6 py-4 text-xs">
-                ${item.enabled === 'Y' ?
-                '<span class="text-green-500 font-bold">啟用中</span>' :
-                '<span class="text-gray-400 font-bold">已停用</span>'}
-            </td>
-            <td class="px-6 py-4">
-                <div class="flex items-center space-x-2">
-                    <button onclick="editFaq('${item.id}')" title="編輯" class="p-2 bg-white text-blue-600 rounded-lg shadow-sm border border-gray-100 hover:bg-blue-50 transition-all">
-                        <i data-lucide="edit" class="w-4 h-4"></i>
-                    </button>
-                    ${item.enabled === 'Y' ? `
-                    <button onclick="deleteFaq('${item.id}')" title="停用" class="p-2 bg-white text-red-500 rounded-lg shadow-sm border border-gray-100 hover:bg-red-50 transition-all">
-                        <i data-lucide="trash-2" class="w-4 h-4"></i>
-                    </button>` : `
-                    <button onclick="enableFaq('${item.id}')" title="啟用" class="p-2 bg-white text-green-600 rounded-lg shadow-sm border border-gray-100 hover:bg-green-50 transition-all">
-                        <i data-lucide="check-circle" class="w-4 h-4"></i>
-                    </button>`}
-                </div>
-            </td>
-        `;
-        tbody.appendChild(tr);
-    });
-    lucide.createIcons();
-}
-
-function editFaq(faqId) {
-    const faq = state.faqs.find(f => f.id === faqId);
-    if (!faq) return;
-    openFaqModal(faqId);
-}
-
-// FAQ Modal
-function openFaqModal(faqId = null) {
-    const modal = document.getElementById('faq-modal');
-    modal.classList.remove('hidden');
-    document.getElementById('faq-modal-title').innerText = faqId ? "編輯 FAQ" : "新增 FAQ";
-
-    if (faqId) {
-        const faq = state.faqs.find(f => f.id === faqId);
-        document.getElementById('modal-faq-id').value = faq.id;
-        document.getElementById('modal-faq-category').value = faq.category;
-        document.getElementById('modal-faq-priority').value = faq.priority;
-        document.getElementById('modal-faq-question').value = faq.question;
-        document.getElementById('modal-faq-keywords').value = faq.keywords;
-        document.getElementById('modal-faq-answer').value = faq.answer;
-    } else {
-        document.getElementById('modal-faq-id').value = "";
-        document.getElementById('modal-faq-question').value = "";
-        document.getElementById('modal-faq-keywords').value = "";
-        document.getElementById('modal-faq-answer').value = "";
-    }
-}
-
-function closeFaqModal() {
-    document.getElementById('faq-modal').classList.add('hidden');
-}
-
-async function saveFaq() {
-    const id = document.getElementById('modal-faq-id').value;
-    const data = {
-        category: document.getElementById('modal-faq-category').value,
-        priority: Number(document.getElementById('modal-faq-priority').value),
-        question: document.getElementById('modal-faq-question').value,
-        keywords: document.getElementById('modal-faq-keywords').value,
-        answer: document.getElementById('modal-faq-answer').value
-    };
-
-    const action = id ? 'faq_update' : 'faq_create';
-    if (id) data.faqId = id;
-
-    const res = await apiCall(action, 'POST', data);
-    if (res.success) {
-        closeFaqModal();
-        loadFaqs();
-    } else {
-        alert("儲存失敗: " + res.message);
-        console.error("Save FAQ Failure:", res);
-    }
-}
-
-async function deleteFaq(faqId) {
-    if (!confirm("確定要刪除/停用此 FAQ 嗎？")) return;
-    const res = await apiCall('faq_delete', 'POST', { faqId });
-    if (res.success) {
-        loadFaqs();
-    } else {
-        alert("刪除失敗: " + res.message);
-        console.error("Delete FAQ Failure:", res);
-    }
-}
-
-async function enableFaq(faqId) {
-    const res = await apiCall('faq_enable', 'POST', { faqId });
-    if (res.success) {
-        loadFaqs();
-    } else {
-        alert("啟用失敗: " + res.message);
-        console.error("Enable FAQ Failure:", res);
-    }
-}
-
-// --- Conversations Logic ---
-async function loadConversations() {
-    const res = await apiCall('member_list');
-    if (res.success) {
-        const container = document.getElementById('user-msg-list');
-        container.innerHTML = "";
-        res.data.items.forEach(user => {
-            const di = document.createElement('div');
-            di.className = `p-5 cursor-pointer hover:bg-blue-50 transition-all ${state.activeUserId === user.line_user_id ? 'bg-blue-50 border-r-4 border-blue-500' : ''}`;
-            di.onclick = () => loadUserDetail(user.line_user_id, user.display_name);
-            di.innerHTML = `
-                <div class="flex items-center space-x-3">
-                    <img src="${user.picture_url || 'https://via.placeholder.com/40'}" class="w-10 h-10 rounded-full">
-                    <div class="flex-1 overflow-hidden">
-                        <div class="flex justify-between items-center">
-                            <span class="font-bold text-gray-800 text-sm truncate">${user.display_name}</span>
-                            <span class="text-[10px] text-gray-400">${formatDate(user.last_seen_at || user.created_at)}</span>
-                        </div>
-                        <div class="text-xs text-gray-400 truncate">${user.last_intent || '無最近意圖'}</div>
-                    </div>
-                </div>
-            `;
-            container.appendChild(di);
-        });
-    }
-}
-
-async function loadUserDetail(lineUserId, name) {
-    state.activeUserId = lineUserId;
-    document.getElementById('viewer-name').innerText = name;
-    document.getElementById('viewer-id').innerText = lineUserId;
-    loadConversations(); // Refresh list to show active highlight
-
-    const res = await apiCall('conversation_detail', 'GET', { lineUserId });
-    if (res.success) {
-        const body = document.getElementById('chat-viewer-body');
-        body.innerHTML = "";
-        res.data.reverse().forEach(msg => {
-            const div = document.createElement('div');
-            div.className = `flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`;
-            div.innerHTML = `
-                <div class="max-w-[70%] p-4 rounded-2xl text-sm shadow-sm ${msg.role === 'user' ? 'bg-blue-600 text-white' : 'bg-white text-gray-800 border border-gray-100'}">
-                    <p>${msg.message_text}</p>
-                    <div class="mt-2 flex items-center justify-between text-[10px] opacity-60">
-                        <span>${msg.role === 'user' ? '客戶' : '系統'}</span>
-                        <span>${formatDateFull(msg.created_at)}</span>
-                    </div>
-                </div>
-            `;
-            body.appendChild(div);
-        });
-        body.scrollTop = body.scrollHeight;
-    }
-}
-
-// --- Tickets Logic ---
-async function loadTickets() {
-    const list = document.getElementById('ticket-list');
-    const badge = document.getElementById('badge-tickets');
-
-    // 1. Fetch data with status filter
-    const query = state.ticketFilter === 'all' ? {} : { status: state.ticketFilter };
-    const res = await apiCall('ticket_list', 'GET', query);
-
-    if (res.success) {
-        state.tickets = res.data.items;
-
-        // 2. Client-side Search Filtering
-        const searchTerm = document.getElementById('ticket-search').value.toLowerCase();
-        const filteredItems = state.tickets.filter(t =>
-            (t.summary && t.summary.toLowerCase().includes(searchTerm)) ||
-            (t.line_user_id && t.line_user_id.toLowerCase().includes(searchTerm)) ||
-            (t.phone && t.phone.toString().includes(searchTerm))
-        );
-
-        // 3. Update Sidebar Badge (only counting 'open' tickets across all)
-        const openRes = await apiCall('dashboard_stats');
-        const openCount = openRes.success ? openRes.data.activeTickets : filteredItems.filter(t => t.status === 'open').length;
-        if (openCount > 0) {
-            badge.innerText = openCount;
-            badge.classList.remove('hidden');
-        } else {
-            badge.classList.add('hidden');
-        }
-
-        if (filteredItems.length === 0) {
-            list.innerHTML = `<div class="text-center py-20 text-gray-400 text-sm">此分類下無工單記錄</div>`;
+        await liff.init({ liffId: LIFF_ID });
+        if (!liff.isLoggedIn()) {
+            liff.login();
             return;
         }
 
-        // 4. Render
-        list.innerHTML = "";
-        filteredItems.forEach(t => {
-            const card = document.createElement('div');
-            card.className = `glass-card p-6 rounded-3xl flex items-center justify-between border-l-4 transition-all hover:shadow-lg ${t.status === 'open' ? 'border-orange-500' : (t.status === 'resolved' ? 'border-green-500' : 'border-gray-300')}`;
-            card.innerHTML = `
-                <div class="flex items-center space-x-6 flex-1">
-                    <div class="w-12 h-12 rounded-2xl ${t.status === 'open' ? 'bg-orange-50 text-orange-600' : 'bg-gray-50 text-gray-400'} flex items-center justify-center">
-                        <i data-lucide="${t.status === 'open' ? 'clock-3' : 'check-circle'}" class="w-6 h-6"></i>
-                    </div>
-                    <div class="space-y-1">
-                        <div class="flex items-center space-x-2">
-                             <span class="px-2 py-0.5 bg-gray-100 text-gray-500 text-[10px] font-bold rounded uppercase">${t.category || '一般'}</span>
-                             <h4 class="font-bold text-gray-800 text-lg">${t.summary}</h4>
-                        </div>
-                        <div class="text-xs text-gray-400 flex items-center space-x-4">
-                             <span class="flex items-center"><i data-lucide="user" class="w-3 h-3 mr-1"></i> ${t.line_user_id.slice(-8)}...</span>
-                             <span class="flex items-center"><i data-lucide="phone" class="w-3 h-3 mr-1"></i> ${t.phone || '未提供電話'}</span>
-                             <span class="flex items-center"><i data-lucide="calendar" class="w-3 h-3 mr-1"></i> ${formatDate(t.created_at)}</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="flex items-center space-x-6">
-                    <div class="flex flex-col items-end">
-                        <span class="text-[10px] font-bold text-gray-400 uppercase mb-1">狀態管理</span>
-                        <select onchange="updateTicketStatus('${t.id}', this.value)" class="text-xs font-bold bg-white border border-gray-100 rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-blue-500">
-                            <option value="open" ${t.status === 'open' ? 'selected' : ''}>⏳ 處理中</option>
-                            <option value="resolved" ${t.status === 'resolved' ? 'selected' : ''}>✅ 已解決</option>
-                            <option value="closed" ${t.status === 'closed' ? 'selected' : ''}>🔒 已關閉</option>
-                        </select>
-                    </div>
-                </div>
+        const profile = await liff.getProfile();
+        state.user = profile;
+
+        // Update UI with profile
+        document.getElementById("user-name").innerText = profile.displayName + " 👋";
+        if (profile.pictureUrl) {
+            document.getElementById("user-avatar").innerHTML = `<img src="${profile.pictureUrl}" class="w-full h-full object-cover">`;
+        }
+
+        // Bind member to backend
+        await apiPost("member_bind", {
+            lineUserId: profile.userId,
+            displayName: profile.displayName,
+            pictureUrl: profile.pictureUrl
+        });
+
+        // Load settings
+        const settingsRes = await apiGet("settings_list");
+        if (settingsRes.success) {
+            state.settings = settingsRes.data;
+        }
+
+        // Load Initial FAQs for Home
+        loadHomeFaqs();
+
+        // Finish Loading
+        showPage("page-home");
+    } catch (err) {
+        console.error("LIFF Init Error:", err);
+        // Fallback for development if not in LINE
+        if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+            state.user = { userId: "U_TEST_USER", displayName: "Test User" };
+            showPage("page-home");
+        } else {
+            alert("系統初始化失敗，請稍後再試。");
+        }
+    }
+}
+
+// --- Navigation ---
+function showPage(pageId) {
+    // Hide all pages
+    document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+    // Show target page
+    const target = document.getElementById(pageId);
+    if (target) {
+        target.classList.add("active");
+        state.currentPage = pageId;
+    }
+
+    // Scroll to top
+    window.scrollTo(0, 0);
+
+    // Update Bottom Nav
+    updateBottomNav();
+
+    // If chat page, focus and scroll
+    if (pageId === "page-chat") {
+        const msgContainer = document.getElementById("chat-messages");
+        msgContainer.scrollTop = msgContainer.scrollHeight;
+    }
+}
+
+function updateBottomNav() {
+    const navItems = document.querySelectorAll(".nav-item");
+    navItems.forEach(item => {
+        const page = item.getAttribute("data-page");
+        if (page === state.currentPage) {
+            item.classList.add("bottom-nav-active");
+        } else {
+            item.classList.remove("bottom-nav-active");
+        }
+    });
+}
+
+// --- API Helpers ---
+async function apiPost(action, data) {
+    try {
+        const response = await fetch(GAS_URL, {
+            method: "POST",
+            body: JSON.stringify({ action, data })
+        });
+        return await response.json();
+    } catch (err) {
+        console.error("API POST Error:", err);
+        return { success: false, message: "Network error" };
+    }
+}
+
+async function apiGet(action, params = {}) {
+    try {
+        const query = new URLSearchParams({ action, ...params }).toString();
+        const response = await fetch(`${GAS_URL}?${query}`);
+        return await response.json();
+    } catch (err) {
+        console.error("API GET Error:", err);
+        return { success: false, message: "Network error" };
+    }
+}
+
+// --- FAQ logic ---
+async function loadHomeFaqs() {
+    const res = await apiGet("faq_list", { pageSize: 3 });
+    if (res.success && res.data.items) {
+        const container = document.getElementById("home-faq-list");
+        container.innerHTML = "";
+        res.data.items.forEach(faq => {
+            const el = document.createElement("div");
+            el.className = "bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between group active:bg-slate-50";
+            el.innerHTML = `
+                <span class="text-sm font-medium text-slate-700">${faq.question}</span>
+                <i data-lucide="chevron-right" class="w-4 h-4 text-slate-300 group-active:text-blue-500"></i>
             `;
-            list.appendChild(card);
+            el.onclick = () => showFaqDetail(faq);
+            container.appendChild(el);
         });
         lucide.createIcons();
     }
 }
 
-function filterTickets(status) {
-    state.ticketFilter = status;
-    const tabs = ['all', 'open', 'resolved'];
-    tabs.forEach(t => {
-        const btn = document.getElementById(`tab-ticket-${t}`);
-        if (!btn) return;
-        if (t === status) {
-            btn.className = "px-5 py-2 text-xs font-bold rounded-xl bg-blue-600 text-white shadow-sm transition-all focus:outline-none";
-        } else {
-            btn.className = "px-5 py-2 text-xs font-bold rounded-xl text-gray-500 hover:bg-gray-50 transition-all focus:outline-none";
-        }
+async function loadFullFaqs() {
+    const search = document.getElementById("faq-search").value;
+    const res = await apiGet("faq_list", { keyword: search });
+    if (res.success && res.data.items) {
+        const container = document.getElementById("faq-list");
+        container.innerHTML = "";
+        res.data.items.forEach(faq => {
+            const el = document.createElement("div");
+            el.className = "bg-white p-5 rounded-2xl border border-slate-100 shadow-sm";
+            el.innerHTML = `
+                <h3 class="font-bold text-slate-800 text-sm mb-2 flex items-start">
+                    <span class="w-5 h-5 bg-blue-100 text-blue-600 rounded-md flex items-center justify-center text-[10px] mr-2 mt-0.5 shrink-0">Q</span>
+                    ${faq.question}
+                </h3>
+                <p class="text-slate-600 text-sm leading-relaxed">
+                    ${faq.answer}
+                </p>
+                <div class="mt-4 pt-3 border-t border-slate-50 flex justify-end">
+                    <button class="text-blue-600 text-xs font-bold" onclick="askAbout('${faq.question}')">問更多對話 &rarr;</button>
+                </div>
+            `;
+            container.appendChild(el);
+        });
+    }
+}
+
+document.getElementById("faq-search").oninput = loadFullFaqs;
+
+function askAbout(question) {
+    document.getElementById("chat-input").value = question;
+    showPage("page-chat");
+    handleSendChat();
+}
+
+// --- Chat logic ---
+document.getElementById("chat-send").onclick = handleSendChat;
+document.getElementById("chat-input").onkeypress = (e) => {
+    if (e.key === "Enter") handleSendChat();
+};
+
+async function handleSendChat() {
+    const input = document.getElementById("chat-input");
+    const message = input.value.trim();
+    if (!message || state.loading) return;
+
+    input.value = "";
+    appendMessage("user", message);
+
+    state.loading = true;
+    document.getElementById("chat-loading").classList.remove("hidden");
+    const container = document.getElementById("chat-messages");
+    container.scrollTop = container.scrollHeight;
+
+    const res = await apiPost("chat_send", {
+        lineUserId: state.user.userId,
+        message: message
     });
-    loadTickets();
-}
 
-async function updateTicketStatus(ticketId, status) {
-    await apiCall('ticket_update_status', 'POST', { ticketId, status });
-    loadTickets();
-}
-
-function getPriorityColor(p) {
-    if (p === 'urgent') return 'text-red-500';
-    if (p === 'high') return 'text-orange-500';
-    return 'text-blue-500';
-}
-
-// --- Utils ---
-function formatDate(iso) {
-    if (!iso) return "";
-    const d = new Date(iso);
-    return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${d.getMinutes().toString().padStart(2, '0')}`;
-}
-
-function formatDateFull(iso) {
-    if (!iso) return "";
-    const d = new Date(iso);
-    return d.toLocaleString();
-}
-
-// --- Settings Logic ---
-async function loadSettings() {
-    console.log("Loading settings...");
-    const res = await apiCall('settings_list');
-    const promptsRes = await apiCall('prompt_list');
+    state.loading = false;
+    document.getElementById("chat-loading").classList.add("hidden");
 
     if (res.success) {
-        document.getElementById('set-gemini-key').value = res.data.gemini_api_key || "";
-        document.getElementById('set-line-token').value = res.data.line_access_token || "";
-    }
-
-    if (promptsRes.success) {
-        const prompt = promptsRes.data.find(p => p.prompt_name === 'customer_service_system');
-        if (prompt) {
-            document.getElementById('set-prompt').value = prompt.content;
+        appendMessage("bot", res.data.reply);
+        if (res.data.handoff) {
+            appendMessage("system", "💡 轉接中：AI 小助手似乎回不了這題，已為您標註客服，如需立即處理可點擊「轉人工」。");
         }
-    }
-}
-
-async function saveAllSettings() {
-    const geminiKey = document.getElementById('set-gemini-key').value;
-    const lineToken = document.getElementById('set-line-token').value;
-    const promptContent = document.getElementById('set-prompt').value;
-
-    const settingsRes = await apiCall('settings_update', 'POST', {
-        gemini_api_key: geminiKey,
-        line_access_token: lineToken
-    });
-
-    const promptRes = await apiCall('prompt_update', 'POST', {
-        promptName: 'customer_service_system',
-        content: promptContent
-    });
-
-    if (settingsRes.success && promptRes.success) {
-        alert("設定儲存成功！");
     } else {
-        alert("部分設定儲存失敗。");
+        appendMessage("bot", "抱歉，我現在有點不舒服（連線異常），請稍後再試。");
     }
 }
 
-// Explicitly bind to window to avoid issues with modules or scope
-window.showSection = showSection;
-window.editFaq = editFaq;
-window.deleteFaq = deleteFaq;
-window.enableFaq = enableFaq;
-window.openFaqModal = openFaqModal;
-window.closeFaqModal = closeFaqModal;
-window.saveFaq = saveFaq;
-window.updateTicketStatus = updateTicketStatus;
-window.filterTickets = filterTickets;
-window.saveAllSettings = saveAllSettings;
+function appendMessage(role, text) {
+    const container = document.getElementById("chat-messages");
+    const msgDiv = document.createElement("div");
+
+    if (role === "system") {
+        msgDiv.className = "self-center my-4 px-6 py-2 bg-slate-200/50 rounded-full text-[10px] text-slate-500 font-medium max-w-[90%] text-center";
+        msgDiv.innerText = text;
+    } else {
+        msgDiv.className = `chat-bubble chat-${role === "user" ? "user" : "bot text-sm"}`;
+        msgDiv.innerText = text;
+    }
+
+    container.appendChild(msgDiv);
+    container.scrollTop = container.scrollHeight;
+}
+
+// --- Ticket Logic ---
+document.getElementById("contact-form").onsubmit = async (e) => {
+    e.preventDefault();
+    if (state.loading) return;
+
+    const data = {
+        lineUserId: state.user.userId,
+        category: document.getElementById("ticket-category").value,
+        summary: document.getElementById("ticket-summary").value,
+        phone: document.getElementById("ticket-phone").value,
+        source: "liff_form"
+    };
+
+    if (!data.summary) {
+        alert("請輸入問題描述");
+        return;
+    }
+
+    state.loading = true;
+    const res = await apiPost("ticket_create", data);
+    state.loading = false;
+
+    if (res.success) {
+        alert("留言已成功送出！客服將盡快回覆。");
+        showPage("page-home");
+        // Reset form
+        document.getElementById("contact-form").reset();
+    } else {
+        alert("送出失敗，請確認網路連線。");
+    }
+};
+
+// --- Utils ---
+function showFaqDetail(faq) {
+    alert(faq.answer);
+}
