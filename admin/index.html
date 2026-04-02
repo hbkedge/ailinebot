@@ -198,10 +198,22 @@
                         <div id="chat-viewer-header"
                             class="p-4 border-b border-gray-100 flex items-center justify-between">
                             <div class="flex items-center space-x-3">
-                                <div id="viewer-avatar" class="w-8 h-8 rounded-full bg-gray-100"></div>
-                                <h4 id="viewer-name" class="font-bold text-gray-800 text-sm">請選擇對話</h4>
+                                <div id="viewer-avatar"
+                                    class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center"><i
+                                        data-lucide="user" class="w-4 h-4 text-gray-400"></i></div>
+                                <div>
+                                    <h4 id="viewer-name" class="font-bold text-gray-800 text-sm">請選擇對話</h4>
+                                    <div class="flex items-center space-x-2">
+                                        <span id="viewer-id" class="text-[9px] text-gray-400 font-mono"></span>
+                                        <span id="viewer-mode-badge"
+                                            class="hidden px-1.5 py-0.5 text-[9px] font-bold rounded uppercase">模式</span>
+                                    </div>
+                                </div>
                             </div>
-                            <span id="viewer-id" class="text-[10px] text-gray-400"></span>
+                            <div id="chat-header-actions" class="hidden flex items-center space-x-2">
+                                <button onclick="toggleUserMode()"
+                                    class="text-[10px] bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg font-bold hover:bg-blue-100 transition-all">切換模式</button>
+                            </div>
                         </div>
                         <div id="chat-viewer-body" class="flex-1 overflow-y-auto p-6 space-y-4 bg-slate-50/30">
                             <p class="text-gray-400 text-center py-20 text-sm">點擊左側列表查看對話細節</p>

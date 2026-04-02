@@ -244,16 +244,19 @@ async function loadConversations() {
         res.data.items.forEach(user => {
             const di = document.createElement('div');
             di.className = `p-5 cursor-pointer hover:bg-blue-50 transition-all ${state.activeUserId === user.line_user_id ? 'bg-blue-50 border-r-4 border-blue-500' : ''}`;
-            di.onclick = () => loadUserDetail(user.line_user_id, user.display_name);
+            di.onclick = () => loadUserDetail(user.line_user_id, user.display_name, user.mode, user.picture_url);
             di.innerHTML = `
                 <div class="flex items-center space-x-3">
-                    <img src="${user.picture_url || 'https://via.placeholder.com/40'}" class="w-10 h-10 rounded-full">
+                    <div class="relative">
+                        <img src="${user.picture_url || 'https://via.placeholder.com/40'}" class="w-10 h-10 rounded-full">
+                        <span class="absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-white ${user.mode === 'human' ? 'bg-orange-500' : 'bg-green-500'}"></span>
+                    </div>
                     <div class="flex-1 overflow-hidden">
                         <div class="flex justify-between items-center">
                             <span class="font-bold text-gray-800 text-sm truncate">${user.display_name}</span>
-                            <span class="text-[10px] text-gray-400">${formatDate(user.last_seen_at || user.created_at)}</span>
+                            <span class="text-[10px] text-gray-400">${formatDate(user.last_seen_at || user.created_at || user.updated_at)}</span>
                         </div>
-                        <div class="text-xs text-gray-400 truncate">${user.last_intent || '無最近意圖'}</div>
+                        <div class="text-[10px] ${user.mode === 'human' ? 'text-orange-500' : 'text-gray-400'} truncate">${user.mode === 'human' ? '⚠️ 需要真人介入' : (user.last_intent || 'AI 監控中')}</div>
                     </div>
                 </div>
             `;
@@ -262,31 +265,74 @@ async function loadConversations() {
     }
 }
 
-async function loadUserDetail(lineUserId, name) {
+async function loadUserDetail(lineUserId, name, mode, avatar) {
     state.activeUserId = lineUserId;
+
+    // Update Header
     document.getElementById('viewer-name').innerText = name;
-    document.getElementById('viewer-id').innerText = lineUserId;
+    document.getElementById('viewer-id').innerText = lineUserId.slice(-8) + '...';
+    document.getElementById('chat-header-actions').classList.remove('hidden');
+
+    const badge = document.getElementById('viewer-mode-badge');
+    badge.innerText = mode === 'human' ? '真人服務中' : 'AI 防護中';
+    badge.className = `px-1.5 py-0.5 text-[9px] font-bold rounded uppercase ${mode === 'human' ? 'bg-orange-100 text-orange-600' : 'bg-green-100 text-green-600'}`;
+    badge.classList.remove('hidden');
+
+    if (avatar) {
+        document.getElementById('viewer-avatar').innerHTML = `<img src="${avatar}" class="w-full h-full rounded-full object-cover">`;
+    }
+
     loadConversations(); // Refresh list to show active highlight
 
     const res = await apiCall('conversation_detail', 'GET', { lineUserId });
     if (res.success) {
         const body = document.getElementById('chat-viewer-body');
         body.innerHTML = "";
+
+        if (res.data.length === 0) {
+            body.innerHTML = `<p class="text-center text-gray-400 py-10">尚無對話記錄</p>`;
+            return;
+        }
+
         res.data.reverse().forEach(msg => {
             const div = document.createElement('div');
             div.className = `flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`;
             div.innerHTML = `
-                <div class="max-w-[70%] p-4 rounded-2xl text-sm shadow-sm ${msg.role === 'user' ? 'bg-blue-600 text-white' : 'bg-white text-gray-800 border border-gray-100'}">
-                    <p>${msg.message_text}</p>
-                    <div class="mt-2 flex items-center justify-between text-[10px] opacity-60">
-                        <span>${msg.role === 'user' ? '客戶' : '系統'}</span>
-                        <span>${formatDateFull(msg.created_at)}</span>
+                <div class="max-w-[75%] p-3 rounded-2xl text-sm shadow-sm ${msg.role === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-white text-gray-800 border border-gray-100 rounded-bl-none'}">
+                    <p class="whitespace-pre-wrap">${msg.message_text}</p>
+                    <div class="mt-1.5 flex items-center justify-between text-[9px] opacity-50">
+                        <span>${msg.role === 'user' ? 'CLIENT' : 'BOT'}</span>
+                        <span>${formatDate(msg.created_at)}</span>
                     </div>
                 </div>
             `;
             body.appendChild(div);
         });
         body.scrollTop = body.scrollHeight;
+    }
+}
+
+async function toggleUserMode() {
+    if (!state.activeUserId) return;
+
+    // Find current mode from state or list
+    const user = state.conversations.find(u => u.line_user_id === state.activeUserId);
+    const newMode = (user && user.mode === 'human') ? 'bot' : 'human';
+
+    const res = await apiCall('handoff_toggle', 'POST', {
+        lineUserId: state.activeUserId,
+        mode: newMode
+    });
+
+    if (res.success) {
+        // Success! Reload the list and detail
+        const itemsRes = await apiCall('member_list');
+        if (itemsRes.success) {
+            const updatedUser = itemsRes.data.items.find(u => u.line_user_id === state.activeUserId);
+            loadUserDetail(updatedUser.line_user_id, updatedUser.display_name, updatedUser.mode, updatedUser.picture_url);
+        }
+    } else {
+        alert("切換失敗: " + res.message);
     }
 }
 
@@ -454,4 +500,5 @@ window.closeFaqModal = closeFaqModal;
 window.saveFaq = saveFaq;
 window.updateTicketStatus = updateTicketStatus;
 window.filterTickets = filterTickets;
+window.toggleUserMode = toggleUserMode;
 window.saveAllSettings = saveAllSettings;
