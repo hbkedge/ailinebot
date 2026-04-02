@@ -198,13 +198,19 @@ async function saveFaq() {
         loadFaqs();
     } else {
         alert("儲存失敗: " + res.message);
+        console.error("Save FAQ Failure:", res);
     }
 }
 
 async function deleteFaq(faqId) {
     if (!confirm("確定要刪除/停用此 FAQ 嗎？")) return;
     const res = await apiCall('faq_delete', 'POST', { faqId });
-    if (res.success) loadFaqs();
+    if (res.success) {
+        loadFaqs();
+    } else {
+        alert("刪除失敗: " + res.message);
+        console.error("Delete FAQ Failure:", res);
+    }
 }
 
 // --- Conversations Logic ---
