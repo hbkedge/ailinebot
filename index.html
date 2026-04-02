@@ -2,314 +2,332 @@
 <html lang="zh-TW">
 
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>AI 智能客服 - LIFF</title>
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- LIFF SDK -->
-  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <!-- Lucide Icons -->
-  <script src="https://unpkg.com/lucide@latest"></script>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 智能客服 - 管理後台</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
-    body {
-      font-family: 'Noto+Sans+TC', sans-serif;
-      background-color: #f8fafc;
-      color: #1e293b;
-    }
+        body {
+            font-family: 'Inter', sans-serif;
+        }
 
-    .page {
-      display: none;
-      min-height: 100vh;
-    }
+        .sidebar-item.active {
+            background-color: #eff6ff;
+            color: #2563eb;
+            border-right: 4px solid #2563eb;
+        }
 
-    .page.active {
-      display: block;
-    }
+        .section {
+            display: none;
+        }
 
-    .glass {
-      background: rgba(255, 255, 255, 0.8);
-      backdrop-filter: blur(8px);
-      border: 1px solid rgba(255, 255, 255, 0.3);
-    }
+        .section.active {
+            display: block;
+        }
 
-    .chat-bubble {
-      max-width: 85%;
-      padding: 10px 14px;
-      border-radius: 18px;
-      margin-bottom: 8px;
-      position: relative;
-    }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid #e2e8f0;
+        }
 
-    .chat-user {
-      background-color: #3b82f6;
-      color: white;
-      border-bottom-right-radius: 4px;
-      align-self: flex-end;
-    }
-
-    .chat-bot {
-      background-color: white;
-      color: #1e293b;
-      border-bottom-left-radius: 4px;
-      align-self: flex-start;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-    }
-
-    .loading-dots span {
-      animation: blink 1.4s infinite both;
-      height: 6px;
-      width: 6px;
-      background-color: #94a3b8;
-      border-radius: 50%;
-      display: inline-block;
-      margin: 0 2px;
-    }
-
-    .loading-dots span:nth-child(2) {
-      animation-delay: 0.2s;
-    }
-
-    .loading-dots span:nth-child(3) {
-      animation-delay: 0.4s;
-    }
-
-    @keyframes blink {
-      0% {
-        opacity: 0.2;
-      }
-
-      20% {
-        opacity: 1;
-      }
-
-      100% {
-        opacity: 0.2;
-      }
-    }
-
-    .bottom-nav-active {
-      color: #3b82f6;
-    }
-  </style>
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+    </style>
 </head>
 
-<body class="bg-slate-50">
+<body class="bg-gray-50 flex h-screen overflow-hidden">
 
-  <!-- 1. Splash / Loading Page -->
-  <div id="page-loading" class="page active flex flex-col items-center justify-center">
-    <div class="animate-bounce mb-4">
-      <div class="w-20 h-20 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
-        <i data-lucide="bot" class="text-white w-12 h-12"></i>
-      </div>
-    </div>
-    <h1 class="text-xl font-bold text-slate-800">AI 智能客服</h1>
-    <p class="text-slate-400 mt-2 text-sm">系統初始化中...</p>
-  </div>
-
-  <!-- 2. Home Page -->
-  <div id="page-home" class="page pb-20">
-    <header class="p-6 bg-white shadow-sm sticky top-0 z-10 flex items-center justify-between">
-      <div class="flex items-center space-x-3">
-        <div id="user-avatar" class="w-10 h-10 rounded-full bg-slate-200 overflow-hidden"></div>
-        <div>
-          <p class="text-xs text-slate-500">哈囉，</p>
-          <p id="user-name" class="font-bold text-slate-800">載入中...</p>
+    <!-- Sidebar Navigation -->
+    <aside class="w-64 bg-white border-r border-gray-200 flex flex-col pt-8">
+        <div class="px-6 mb-10 flex items-center space-x-3">
+            <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                <i data-lucide="layout-dashboard" class="text-white w-5 h-5"></i>
+            </div>
+            <h1 class="text-xl font-bold tracking-tight">AI 智能中台</h1>
         </div>
-      </div>
-      <button onclick="showPage('page-profile')" class="p-2 text-slate-400">
-        <i data-lucide="settings" class="w-6 h-6"></i>
-      </button>
-    </header>
 
-    <main class="p-4 space-y-6">
-      <!-- Summary Card -->
-      <div class="bg-gradient-to-br from-blue-600 to-indigo-700 p-6 rounded-3xl text-white shadow-xl">
-        <h2 class="text-lg font-medium opacity-90">需要什麼協助嗎？</h2>
-        <p class="text-sm opacity-75 mt-1">AI 小助手隨時為您服務</p>
-        <div class="mt-6 flex space-x-4">
-          <button onclick="showPage('page-chat')"
-            class="flex-1 bg-white text-blue-600 py-3 rounded-xl font-bold text-sm shadow-sm hover:bg-slate-50 transition-all flex items-center justify-center space-x-2">
-            <i data-lucide="message-square" class="w-4 h-4"></i>
-            <span>立即對話</span>
-          </button>
-          <button onclick="showPage('page-faq')"
-            class="flex-1 bg-blue-500/30 text-white border border-white/20 py-3 rounded-xl font-bold text-sm backdrop-blur-sm hover:bg-blue-500/40 transition-all flex items-center justify-center space-x-2">
-            <i data-lucide="help-circle" class="w-4 h-4"></i>
-            <span>常見問題</span>
-          </button>
-        </div>
-      </div>
+        <nav class="flex-1 space-y-1">
+            <button onclick="showSection('dashboard')" data-nav="dashboard"
+                class="sidebar-item active w-full flex items-center space-x-3 px-6 py-4 text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-all">
+                <i data-lucide="home" class="w-5 h-5"></i>
+                <span>數據總覽</span>
+            </button>
+            <button onclick="showSection('faq')" data-nav="faq"
+                class="sidebar-item w-full flex items-center space-x-3 px-6 py-4 text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-all">
+                <i data-lucide="help-circle" class="w-5 h-5"></i>
+                <span>FAQ 管理</span>
+            </button>
+            <button onclick="showSection('conversations')" data-nav="conversations"
+                class="sidebar-item w-full flex items-center space-x-3 px-6 py-4 text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-all">
+                <i data-lucide="message-circle" class="w-5 h-5"></i>
+                <span>對話追蹤</span>
+            </button>
+            <button onclick="showSection('tickets')" data-nav="tickets"
+                class="sidebar-item w-full flex items-center space-x-3 px-6 py-4 text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-all">
+                <i data-lucide="ticket" class="w-5 h-5"></i>
+                <span>工單中心</span>
+                <span id="badge-tickets"
+                    class="hidden ml-auto bg-red-100 text-red-600 px-2 py-0.5 rounded-full text-[10px]">0</span>
+            </button>
+            <button onclick="showSection('settings')" data-nav="settings"
+                class="sidebar-item w-full flex items-center space-x-3 px-6 py-4 text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-all">
+                <i data-lucide="settings" class="w-5 h-5"></i>
+                <span>系統設定</span>
+            </button>
+        </nav>
 
-      <!-- Quick Actions -->
-      <div class="grid grid-cols-2 gap-4">
-        <button onclick="showPage('page-contact')"
-          class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center justify-center space-y-2">
-          <div class="w-10 h-10 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center">
-            <i data-lucide="headset" class="w-5 h-5"></i>
-          </div>
-          <span class="text-sm font-medium text-slate-700">專人服務</span>
-        </button>
-        <div
-          class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center justify-center space-y-2 opacity-50">
-          <div class="w-10 h-10 bg-green-100 text-green-600 rounded-full flex items-center justify-center">
-            <i data-lucide="calendar" class="w-5 h-5"></i>
-          </div>
-          <span class="text-sm font-medium text-slate-700">預約查詢</span>
+        <div class="p-6 border-t border-gray-100">
+            <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 rounded-full bg-slate-200"></div>
+                <div class="text-xs">
+                    <p class="font-bold">超級管理員</p>
+                    <p class="text-gray-400">admin@system</p>
+                </div>
+            </div>
         </div>
-      </div>
+    </aside>
 
-      <!-- News/Recent -->
-      <section>
-        <h3 class="font-bold text-slate-800 mb-3 px-1">熱門問題</h3>
-        <div class="space-y-3" id="home-faq-list">
-          <!-- Dynamic FAQs -->
-          <p class="text-slate-400 text-sm italic px-2">載入常見問題中...</p>
+    <!-- Main Content Area -->
+    <main class="flex-1 flex flex-col h-screen overflow-hidden">
+        <!-- Top Header -->
+        <header class="h-16 bg-white border-b border-gray-200 px-10 flex items-center justify-between">
+            <h2 id="section-title" class="text-xl font-bold text-gray-800 uppercase tracking-wide">數據總覽</h2>
+            <div class="flex items-center space-x-4">
+                <div class="flex items-center space-x-2 text-sm text-green-500 font-medium">
+                    <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                    <span>GAS 服務正常</span>
+                </div>
+                <button onclick="location.reload()" class="p-2 text-gray-400 hover:text-blue-600">
+                    <i data-lucide="refresh-cw" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Content Scroller -->
+        <div id="content-container" class="flex-1 overflow-y-auto p-10 scrollbar-hide">
+
+            <!-- 1. Dashboard Section -->
+            <section id="section-dashboard" class="section active space-y-8">
+                <div class="grid grid-cols-4 gap-6">
+                    <div class="glass-card p-6 rounded-3xl">
+                        <p class="text-sm font-medium text-gray-500 mb-1">累計用戶數</p>
+                        <h3 id="stat-users" class="text-3xl font-bold text-gray-800">0</h3>
+                    </div>
+                    <div class="glass-card p-6 rounded-3xl">
+                        <p class="text-sm font-medium text-gray-500 mb-1">今日對話次數</p>
+                        <h3 id="stat-conversations" class="text-3xl font-bold text-gray-800">0</h3>
+                    </div>
+                    <div class="glass-card p-6 rounded-3xl border-l-4 border-blue-500">
+                        <p class="text-sm font-medium text-gray-500 mb-1">FAQ 解決率</p>
+                        <h3 id="stat-hitrate" class="text-3xl font-bold text-blue-600">0%</h3>
+                    </div>
+                    <div class="glass-card p-6 rounded-3xl border-l-4 border-orange-500">
+                        <p class="text-sm font-medium text-gray-500 mb-1">待處理工單</p>
+                        <h3 id="stat-tickets" class="text-3xl font-bold text-orange-600">0</h3>
+                    </div>
+                </div>
+
+                <div class="glass-card rounded-3xl p-8">
+                    <h4 class="font-bold text-gray-800 mb-6 flex items-center">
+                        <i data-lucide="bar-chart-2" class="w-5 h-5 mr-2 text-blue-600"></i>
+                        熱門 FAQ 解決統計
+                    </h4>
+                    <div id="top-faq-list" class="space-y-4">
+                        <p class="text-gray-400 text-sm italic">載入統計資料中...</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 2. FAQ Management Section -->
+            <section id="section-faq" class="section space-y-6">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-4">
+                        <div class="relative">
+                            <input id="faq-search" type="text" placeholder="搜尋問題..."
+                                class="bg-white border border-gray-200 rounded-xl pl-10 pr-4 py-2 text-sm w-64 focus:ring-2 focus:ring-blue-500 outline-none">
+                            <i data-lucide="search" class="absolute left-3 top-2.5 w-4 h-4 text-gray-400"></i>
+                        </div>
+                    </div>
+                    <button onclick="openFaqModal()"
+                        class="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-bold text-sm shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all flex items-center space-x-2">
+                        <i data-lucide="plus" class="w-4 h-4"></i>
+                        <span>新增 FAQ</span>
+                    </button>
+                </div>
+
+                <div class="glass-card rounded-3xl overflow-hidden">
+                    <table class="w-full text-left">
+                        <thead class="bg-gray-50/50 border-b border-gray-100">
+                            <tr>
+                                <th class="px-6 py-4 text-xs font-bold text-gray-400 uppercase">分類</th>
+                                <th class="px-6 py-4 text-xs font-bold text-gray-400 uppercase">問題/關鍵字</th>
+                                <th class="px-6 py-4 text-xs font-bold text-gray-400 uppercase">解答</th>
+                                <th class="px-6 py-4 text-xs font-bold text-gray-400 uppercase">優先級</th>
+                                <th class="px-6 py-4 text-xs font-bold text-gray-400 uppercase">狀態</th>
+                                <th class="px-6 py-4 text-xs font-bold text-gray-400 uppercase">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="faq-table-body" class="divide-y divide-gray-50">
+                            <!-- Table rows dynamic -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 3. Conversations Tracking Section -->
+            <section id="section-conversations" class="section space-y-6">
+                <div class="grid grid-cols-12 gap-6 h-[70vh]">
+                    <!-- User List -->
+                    <div class="col-span-4 glass-card rounded-3xl overflow-hidden flex flex-col">
+                        <div class="p-4 border-b border-gray-100">
+                            <h4 class="font-bold text-gray-800 text-sm">會話列表</h4>
+                        </div>
+                        <div id="user-msg-list" class="flex-1 overflow-y-auto divide-y divide-gray-50">
+                            <!-- Dynamic list -->
+                        </div>
+                    </div>
+                    <!-- Chat Viewer -->
+                    <div class="col-span-8 glass-card rounded-3xl overflow-hidden flex flex-col">
+                        <div id="chat-viewer-header"
+                            class="p-4 border-b border-gray-100 flex items-center justify-between">
+                            <div class="flex items-center space-x-3">
+                                <div id="viewer-avatar" class="w-8 h-8 rounded-full bg-gray-100"></div>
+                                <h4 id="viewer-name" class="font-bold text-gray-800 text-sm">請選擇對話</h4>
+                            </div>
+                            <span id="viewer-id" class="text-[10px] text-gray-400"></span>
+                        </div>
+                        <div id="chat-viewer-body" class="flex-1 overflow-y-auto p-6 space-y-4 bg-slate-50/30">
+                            <p class="text-gray-400 text-center py-20 text-sm">點擊左側列表查看對話細節</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 4. Tickets Management Section -->
+            <section id="section-tickets" class="section space-y-6">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-2 bg-white p-1 rounded-2xl border border-gray-100 shadow-sm">
+                        <button onclick="filterTickets('all')" id="tab-ticket-all"
+                            class="px-5 py-2 text-xs font-bold rounded-xl bg-blue-600 text-white shadow-sm transition-all focus:outline-none">全部</button>
+                        <button onclick="filterTickets('open')" id="tab-ticket-open"
+                            class="px-5 py-2 text-xs font-bold rounded-xl text-gray-500 hover:bg-gray-50 transition-all focus:outline-none">處理中</button>
+                        <button onclick="filterTickets('resolved')" id="tab-ticket-resolved"
+                            class="px-5 py-2 text-xs font-bold rounded-xl text-gray-500 hover:bg-gray-50 transition-all focus:outline-none">已解決</button>
+                    </div>
+                    <div class="relative">
+                        <input id="ticket-search" type="text" placeholder="搜尋 ID 或內容..."
+                            class="bg-white border border-gray-200 rounded-xl pl-10 pr-4 py-2.5 text-sm w-64 focus:ring-2 focus:ring-blue-500 outline-none">
+                        <i data-lucide="search" class="absolute left-3 top-3 w-4 h-4 text-gray-400"></i>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 gap-4" id="ticket-list">
+                    <!-- Dynamic Ticket Cards -->
+                </div>
+            </section>
+
+            <!-- 5. System Settings Section -->
+            <section id="section-settings" class="section space-y-10">
+                <div class="max-w-3xl space-y-8">
+                    <!-- General Settings -->
+                    <div class="space-y-4">
+                        <h4 class="font-bold text-gray-800 pb-2 border-b border-gray-100">核心金鑰</h4>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Gemini API
+                                    Key</label>
+                                <input id="set-gemini-key" type="password" placeholder="AIzaSy..."
+                                    class="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-2">LINE Access
+                                    Token</label>
+                                <textarea id="set-line-token" rows="3"
+                                    class="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Bot Prompts -->
+                    <div class="space-y-4">
+                        <h4 class="font-bold text-gray-800 pb-2 border-b border-gray-100">AI 客服人設 (System Prompt)</h4>
+                        <textarea id="set-prompt" rows="8"
+                            class="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none leading-relaxed"></textarea>
+                    </div>
+
+                    <div class="flex justify-end pt-4">
+                        <button onclick="saveAllSettings()"
+                            class="bg-blue-600 text-white px-10 py-3 rounded-xl font-bold shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all">儲存所有設定</button>
+                    </div>
+                </div>
+            </section>
+
         </div>
-      </section>
     </main>
-  </div>
 
-  <!-- 3. Chat Page -->
-  <div id="page-chat" class="page bg-slate-100 pb-20 flex flex-col h-screen">
-    <header class="p-4 bg-white shadow-sm flex items-center space-x-3">
-      <button onclick="showPage('page-home')" class="p-2 -ml-2">
-        <i data-lucide="chevron-left" class="w-6 h-6"></i>
-      </button>
-      <div class="flex-1">
-        <h2 class="font-bold text-slate-800">智能小助手</h2>
-        <div class="flex items-center text-[10px] text-green-500">
-          <span class="w-1.5 h-1.5 rounded-full bg-green-500 mr-1 animate-pulse"></span>
-          AI 在線上
+    <!-- FAQ Modal (CRUD) -->
+    <div id="faq-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-6">
+        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="closeFaqModal()"></div>
+        <div class="relative bg-white w-full max-w-xl rounded-3xl shadow-2xl overflow-hidden flex flex-col">
+            <div class="p-6 border-b border-gray-100 flex items-center justify-between">
+                <h4 id="faq-modal-title" class="font-bold text-gray-800">編輯 FAQ</h4>
+                <button onclick="closeFaqModal()" class="text-gray-400 hover:text-red-500">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="p-8 space-y-5 overflow-y-auto">
+                <input type="hidden" id="modal-faq-id">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-2">分類</label>
+                        <select id="modal-faq-category"
+                            class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm">
+                            <option value="basic">基礎資訊</option>
+                            <option value="order">訂單問題</option>
+                            <option value="refund">退款申訴</option>
+                            <option value="reservation">預約諮詢</option>
+                            <option value="other">其他</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-2">優先級</label>
+                        <input id="modal-faq-priority" type="number" value="10"
+                            class="w-full border border-gray-200 rounded-xl px-4 py-2 text-sm">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-2">問題內容</label>
+                    <input id="modal-faq-question" type="text"
+                        class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-2">關鍵字 (逗號隔開)</label>
+                    <input id="modal-faq-keywords" type="text" placeholder="如: 營業,時間,幾點"
+                        class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-2">標準答覆</label>
+                    <textarea id="modal-faq-answer" rows="5"
+                        class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm"></textarea>
+                </div>
+            </div>
+            <div class="p-6 bg-gray-50 border-t border-gray-100 flex justify-end space-x-3">
+                <button onclick="closeFaqModal()" class="px-6 py-2.5 text-sm font-medium text-gray-500">取消</button>
+                <button onclick="saveFaq()"
+                    class="bg-blue-600 text-white px-8 py-2.5 rounded-xl font-bold text-sm shadow-md hover:bg-blue-700 transition-all">確認儲存</button>
+            </div>
         </div>
-      </div>
-      <button id="btn-handoff"
-        class="text-xs bg-slate-100 px-3 py-1.5 rounded-lg text-slate-600 font-medium">轉人工</button>
-    </header>
-
-    <div id="chat-messages" class="flex-1 overflow-y-auto p-4 flex flex-col">
-      <div class="chat-bubble chat-bot">
-        您好！我是您的 AI 小助手，請問有什麼可以幫您的嗎？
-      </div>
     </div>
 
-    <div id="chat-loading" class="px-4 py-2 hidden">
-      <div class="chat-bubble chat-bot py-3">
-        <div class="loading-dots">
-          <span></span><span></span><span></span>
-        </div>
-      </div>
-    </div>
-
-    <div class="p-3 bg-white border-t flex items-center space-x-2 sticky bottom-0">
-      <input id="chat-input" type="text" placeholder="輸入訊息..."
-        class="flex-1 bg-slate-50 border border-slate-200 rounded-2xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-      <button id="chat-send"
-        class="w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-md shadow-blue-100 hover:bg-blue-700 active:scale-95 transition-all">
-        <i data-lucide="send" class="w-5 h-5 ml-0.5"></i>
-      </button>
-    </div>
-  </div>
-
-  <!-- 4. FAQ Page -->
-  <div id="page-faq" class="page pb-20">
-    <header class="p-6 bg-white shadow-sm flex items-center space-x-3 sticky top-0 z-10">
-      <button onclick="showPage('page-home')" class="p-2 -ml-2">
-        <i data-lucide="chevron-left" class="w-6 h-6"></i>
-      </button>
-      <h2 class="text-lg font-bold text-slate-800">常見問題</h2>
-    </header>
-
-    <div class="p-4">
-      <div class="relative mb-6">
-        <input id="faq-search" type="text" placeholder="搜尋問題..."
-          class="w-full bg-white border border-slate-200 rounded-2xl pl-10 pr-4 py-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-        <i data-lucide="search" class="absolute left-3 top-3.5 w-4 h-4 text-slate-400"></i>
-      </div>
-
-      <div id="faq-list" class="space-y-4">
-        <!-- FAQs inserted here -->
-      </div>
-    </div>
-  </div>
-
-  <!-- 5. Contact / Ticket Page -->
-  <div id="page-contact" class="page pb-20">
-    <header class="p-6 bg-white shadow-sm flex items-center space-x-3 sticky top-0 z-10">
-      <button onclick="showPage('page-home')" class="p-2 -ml-2">
-        <i data-lucide="chevron-left" class="w-6 h-6"></i>
-      </button>
-      <h2 class="text-lg font-bold text-slate-800">聯絡專人</h2>
-    </header>
-
-    <div class="p-6">
-      <div class="bg-blue-50 border border-blue-100 p-4 rounded-xl mb-6">
-        <div class="flex items-start space-x-3">
-          <i data-lucide="info" class="w-5 h-5 text-blue-500 mt-0.5"></i>
-          <p class="text-xs text-blue-700 leading-relaxed">
-            目前非營業時間或客服人員正忙碌中，您可以先行留下您的問題，我們將在一個工作日內回應您。
-          </p>
-        </div>
-      </div>
-
-      <form id="contact-form" class="space-y-4">
-        <div>
-          <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">問題類型</label>
-          <select id="ticket-category"
-            class="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <option value="support">售後問題</option>
-            <option value="reservation">預約諮詢</option>
-            <option value="refund">退款申訴</option>
-            <option value="complaint">服務抱怨</option>
-            <option value="other">其他</option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">問題描述</label>
-          <textarea id="ticket-summary" rows="4" placeholder="請詳細描述您的問題..."
-            class="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
-        </div>
-        <div>
-          <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">聯絡電話</label>
-          <input id="ticket-phone" type="tel" placeholder="09xx-xxx-xxx"
-            class="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-        </div>
-
-        <button type="submit"
-          class="w-full bg-blue-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-blue-100 hover:bg-blue-700 active:scale-95 transition-all mt-6">送出留言</button>
-      </form>
-    </div>
-  </div>
-
-  <!-- Bottom Nav -->
-  <nav id="bottom-nav"
-    class="fixed bottom-0 left-0 right-0 h-20 bg-white/80 backdrop-blur-md border-t border-slate-100 flex items-center justify-around px-2 z-20">
-    <button onclick="showPage('page-home')" class="nav-item flex flex-col items-center space-y-1 transition-all"
-      data-page="page-home">
-      <i data-lucide="home" class="w-5 h-5"></i>
-      <span class="text-[10px] font-medium">首頁</span>
-    </button>
-    <button onclick="showPage('page-chat')" class="nav-item flex flex-col items-center space-y-1 transition-all"
-      data-page="page-chat">
-      <i data-lucide="message-square" class="w-5 h-5"></i>
-      <span class="text-[10px] font-medium">對話</span>
-    </button>
-    <button onclick="showPage('page-faq')" class="nav-item flex flex-col items-center space-y-1 transition-all"
-      data-page="page-faq">
-      <i data-lucide="search" class="w-5 h-5"></i>
-      <span class="text-[10px] font-medium">搜尋</span>
-    </button>
-    <button onclick="showPage('page-contact')" class="nav-item flex flex-col items-center space-y-1 transition-all"
-      data-page="page-contact">
-      <i data-lucide="edit-3" class="w-5 h-5"></i>
-      <span class="text-[10px] font-medium">留言</span>
-    </button>
-  </nav>
-
-  <!-- Global Scripts -->
-  <script src="script.js"></script>
+    <!-- Global Scripts -->
+    <script src="script.js"></script>
 </body>
 
 </html>
