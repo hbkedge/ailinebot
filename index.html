@@ -29,6 +29,10 @@
       display: block;
     }
 
+    .hidden {
+      display: none !important;
+    }
+
     .glass {
       background: rgba(255, 255, 255, 0.8);
       backdrop-filter: blur(8px);
@@ -99,7 +103,7 @@
 <body class="bg-slate-50">
 
   <!-- 1. Splash / Loading Page -->
-  <div id="page-loading" class="page active flex flex-col items-center justify-center">
+  <div id="page-loading" class="fixed inset-0 bg-white z-[100] flex flex-col items-center justify-center">
     <div class="animate-bounce mb-4">
       <div class="w-20 h-20 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
         <i data-lucide="bot" class="text-white w-12 h-12"></i>

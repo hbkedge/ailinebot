@@ -84,8 +84,10 @@ function showPage(pageId) {
         target.classList.add("active");
         state.currentPage = pageId;
 
-        // Scroll window and also specific container to top
+        // Force scroll-to-top on all layers
         window.scrollTo(0, 0);
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
         target.scrollTop = 0;
     }
 
