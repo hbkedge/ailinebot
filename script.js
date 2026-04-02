@@ -59,13 +59,16 @@ async function initLiff() {
         showPage("page-home");
     } catch (err) {
         console.error("LIFF Init Error:", err);
-        // Fallback for development if not in LINE
-        if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
-            state.user = { userId: "U_TEST_USER", displayName: "Test User" };
-            showPage("page-home");
-        } else {
-            alert("系統初始化失敗，請稍後再試。");
-        }
+        // Better fallback for all environments to prevent stucking
+        state.user = {
+            userId: "U_GUEST_" + Math.floor(Math.random() * 100000),
+            displayName: "访客用戶"
+        };
+        showPage("page-home");
+        console.log("Using fallback guest user");
+    } finally {
+        const loader = document.getElementById("page-loading") || document.getElementById("loading-screen");
+        if (loader) loader.classList.add("hidden");
     }
 }
 
@@ -204,7 +207,7 @@ async function handleSendChat() {
     container.scrollTop = container.scrollHeight;
 
     const res = await apiPost("chat_send", {
-        lineUserId: state.user.userId,
+        lineUserId: state.user ? state.user.userId : "GUEST_UNKNOWN",
         message: message
     });
 
@@ -212,7 +215,8 @@ async function handleSendChat() {
     document.getElementById("chat-loading").classList.add("hidden");
 
     if (res.success) {
-        appendMessage("bot", res.data.reply);
+        const answer = res.data.answer || res.data.reply || "我現在不知道該怎麼回答。";
+        appendMessage("bot", answer);
         if (res.data.handoff) {
             appendMessage("system", "💡 轉接中：AI 小助手似乎回不了這題，已為您標註客服，如需立即處理可點擊「轉人工」。");
         }
@@ -243,7 +247,7 @@ document.getElementById("contact-form").onsubmit = async (e) => {
     if (state.loading) return;
 
     const data = {
-        lineUserId: state.user.userId,
+        lineUserId: state.user ? state.user.userId : "GUEST_FORM",
         category: document.getElementById("ticket-category").value,
         summary: document.getElementById("ticket-summary").value,
         phone: document.getElementById("ticket-phone").value,
@@ -269,7 +273,12 @@ document.getElementById("contact-form").onsubmit = async (e) => {
     }
 };
 
-// --- Utils ---
 function showFaqDetail(faq) {
     alert(faq.answer);
 }
+
+// Global bind
+window.showPage = showPage;
+window.askAbout = askAbout;
+window.handleSendChat = handleSendChat;
+window.showFaqDetail = showFaqDetail;
