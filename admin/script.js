@@ -133,12 +133,16 @@ function renderFaqTable(items) {
             </td>
             <td class="px-6 py-4">
                 <div class="flex items-center space-x-2">
-                    <button onclick="editFaq('${item.id}')" class="p-2 bg-white text-blue-600 rounded-lg shadow-sm border border-gray-100 hover:bg-blue-50 transition-all">
+                    <button onclick="editFaq('${item.id}')" title="編輯" class="p-2 bg-white text-blue-600 rounded-lg shadow-sm border border-gray-100 hover:bg-blue-50 transition-all">
                         <i data-lucide="edit" class="w-4 h-4"></i>
                     </button>
-                    <button onclick="deleteFaq('${item.id}')" class="p-2 bg-white text-red-500 rounded-lg shadow-sm border border-gray-100 hover:bg-red-50 transition-all">
+                    ${item.enabled === 'Y' ? `
+                    <button onclick="deleteFaq('${item.id}')" title="停用" class="p-2 bg-white text-red-500 rounded-lg shadow-sm border border-gray-100 hover:bg-red-50 transition-all">
                         <i data-lucide="trash-2" class="w-4 h-4"></i>
-                    </button>
+                    </button>` : `
+                    <button onclick="enableFaq('${item.id}')" title="啟用" class="p-2 bg-white text-green-600 rounded-lg shadow-sm border border-gray-100 hover:bg-green-50 transition-all">
+                        <i data-lucide="check-circle" class="w-4 h-4"></i>
+                    </button>`}
                 </div>
             </td>
         `;
@@ -210,6 +214,16 @@ async function deleteFaq(faqId) {
     } else {
         alert("刪除失敗: " + res.message);
         console.error("Delete FAQ Failure:", res);
+    }
+}
+
+async function enableFaq(faqId) {
+    const res = await apiCall('faq_enable', 'POST', { faqId });
+    if (res.success) {
+        loadFaqs();
+    } else {
+        alert("啟用失敗: " + res.message);
+        console.error("Enable FAQ Failure:", res);
     }
 }
 
@@ -384,6 +398,7 @@ async function saveAllSettings() {
 window.showSection = showSection;
 window.editFaq = editFaq;
 window.deleteFaq = deleteFaq;
+window.enableFaq = enableFaq;
 window.openFaqModal = openFaqModal;
 window.closeFaqModal = closeFaqModal;
 window.saveFaq = saveFaq;
