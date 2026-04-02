@@ -4,8 +4,8 @@
  */
 
 // --- Configuration ---
-const GAS_URL = "https://script.google.com/macros/s/YOUR_GAS_DEPLOY_ID/exec";
-const LIFF_ID = "YOUR_LIFF_ID";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbxWA3boRKaltkq0bOb2YLNi3Cy1txtl7gupu9TbkwosOgk_11SerCk9yt1r6x5DynfPvQ/exec";
+const LIFF_ID = "2009603120-IRZVrGzZ";
 
 // --- State Management ---
 let state = {
@@ -29,10 +29,10 @@ async function initLiff() {
             liff.login();
             return;
         }
-        
+
         const profile = await liff.getProfile();
         state.user = profile;
-        
+
         // Update UI with profile
         document.getElementById("user-name").innerText = profile.displayName + " 👋";
         if (profile.pictureUrl) {
@@ -197,7 +197,7 @@ async function handleSendChat() {
 
     input.value = "";
     appendMessage("user", message);
-    
+
     state.loading = true;
     document.getElementById("chat-loading").classList.remove("hidden");
     const container = document.getElementById("chat-messages");
@@ -224,7 +224,7 @@ async function handleSendChat() {
 function appendMessage(role, text) {
     const container = document.getElementById("chat-messages");
     const msgDiv = document.createElement("div");
-    
+
     if (role === "system") {
         msgDiv.className = "self-center my-4 px-6 py-2 bg-slate-200/50 rounded-full text-[10px] text-slate-500 font-medium max-w-[90%] text-center";
         msgDiv.innerText = text;
@@ -232,7 +232,7 @@ function appendMessage(role, text) {
         msgDiv.className = `chat-bubble chat-${role === "user" ? "user" : "bot text-sm"}`;
         msgDiv.innerText = text;
     }
-    
+
     container.appendChild(msgDiv);
     container.scrollTop = container.scrollHeight;
 }
