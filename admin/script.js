@@ -146,6 +146,12 @@ function renderFaqTable(items) {
     lucide.createIcons();
 }
 
+function editFaq(faqId) {
+    const faq = state.faqs.find(f => f.id === faqId);
+    if (!faq) return;
+    openFaqModal(faqId);
+}
+
 // FAQ Modal
 function openFaqModal(faqId = null) {
     const modal = document.getElementById('faq-modal');
@@ -324,4 +330,44 @@ function formatDateFull(iso) {
     if (!iso) return "";
     const d = new Date(iso);
     return d.toLocaleString();
+}
+
+// --- Settings Logic ---
+async function loadSettings() {
+    const res = await apiCall('settings_list');
+    const promptsRes = await apiCall('prompt_list');
+
+    if (res.success) {
+        document.getElementById('set-gemini-key').value = res.data.gemini_api_key || "";
+        document.getElementById('set-line-token').value = res.data.line_access_token || "";
+    }
+
+    if (promptsRes.success) {
+        const prompt = promptsRes.data.find(p => p.prompt_name === 'customer_service_system');
+        if (prompt) {
+            document.getElementById('set-prompt').value = prompt.content;
+        }
+    }
+}
+
+async function saveAllSettings() {
+    const geminiKey = document.getElementById('set-gemini-key').value;
+    const lineToken = document.getElementById('set-line-token').value;
+    const promptContent = document.getElementById('set-prompt').value;
+
+    const settingsRes = await apiCall('settings_update', 'POST', {
+        gemini_api_key: geminiKey,
+        line_access_token: lineToken
+    });
+
+    const promptRes = await apiCall('prompt_update', 'POST', {
+        promptName: 'customer_service_system',
+        content: promptContent
+    });
+
+    if (settingsRes.success && promptRes.success) {
+        alert("設定儲存成功！");
+    } else {
+        alert("部分設定儲存失敗。");
+    }
 }
