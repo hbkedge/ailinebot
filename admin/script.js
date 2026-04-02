@@ -12,13 +12,21 @@ let state = {
     conversations: [],
     tickets: [],
     activeUserId: null,
-    loading: false
+    loading: false,
+    ticketFilter: 'all'
 };
 
 // --- Initialization ---
 window.onload = function () {
     lucide.createIcons();
     loadDashboard();
+
+    // Add input listeners
+    const ticketSearch = document.getElementById('ticket-search');
+    if (ticketSearch) ticketSearch.addEventListener('input', () => loadTickets());
+
+    const faqSearch = document.getElementById('faq-search');
+    if (faqSearch) faqSearch.addEventListener('input', () => renderFaqTable(state.faqs));
 };
 
 // --- Router ---
@@ -284,49 +292,91 @@ async function loadUserDetail(lineUserId, name) {
 
 // --- Tickets Logic ---
 async function loadTickets() {
-    const res = await apiCall('ticket_list');
+    const list = document.getElementById('ticket-list');
+    const badge = document.getElementById('badge-tickets');
+
+    // 1. Fetch data with status filter
+    const query = state.ticketFilter === 'all' ? {} : { status: state.ticketFilter };
+    const res = await apiCall('ticket_list', 'GET', query);
+
     if (res.success) {
-        const container = document.getElementById('ticket-list');
-        container.innerHTML = "";
         state.tickets = res.data.items;
 
-        res.data.items.forEach(t => {
+        // 2. Client-side Search Filtering
+        const searchTerm = document.getElementById('ticket-search').value.toLowerCase();
+        const filteredItems = state.tickets.filter(t =>
+            (t.summary && t.summary.toLowerCase().includes(searchTerm)) ||
+            (t.line_user_id && t.line_user_id.toLowerCase().includes(searchTerm)) ||
+            (t.phone && t.phone.toString().includes(searchTerm))
+        );
+
+        // 3. Update Sidebar Badge (only counting 'open' tickets across all)
+        const openRes = await apiCall('dashboard_stats');
+        const openCount = openRes.success ? openRes.data.activeTickets : filteredItems.filter(t => t.status === 'open').length;
+        if (openCount > 0) {
+            badge.innerText = openCount;
+            badge.classList.remove('hidden');
+        } else {
+            badge.classList.add('hidden');
+        }
+
+        if (filteredItems.length === 0) {
+            list.innerHTML = `<div class="text-center py-20 text-gray-400 text-sm">此分類下無工單記錄</div>`;
+            return;
+        }
+
+        // 4. Render
+        list.innerHTML = "";
+        filteredItems.forEach(t => {
             const card = document.createElement('div');
-            card.className = "glass-card p-6 rounded-3xl flex items-center justify-between transition-all hover:shadow-md";
+            card.className = `glass-card p-6 rounded-3xl flex items-center justify-between border-l-4 transition-all hover:shadow-lg ${t.status === 'open' ? 'border-orange-500' : (t.status === 'resolved' ? 'border-green-500' : 'border-gray-300')}`;
             card.innerHTML = `
                 <div class="flex items-center space-x-6 flex-1">
-                    <div class="w-12 h-12 rounded-2xl bg-orange-100 text-orange-600 flex items-center justify-center font-bold">
-                        <i data-lucide="ticket" class="w-6 h-6"></i>
+                    <div class="w-12 h-12 rounded-2xl ${t.status === 'open' ? 'bg-orange-50 text-orange-600' : 'bg-gray-50 text-gray-400'} flex items-center justify-center">
+                        <i data-lucide="${t.status === 'open' ? 'clock-3' : 'check-circle'}" class="w-6 h-6"></i>
                     </div>
                     <div class="space-y-1">
                         <div class="flex items-center space-x-2">
-                             <span class="px-2 py-0.5 bg-gray-100 text-gray-500 text-[10px] font-bold rounded uppercase">${t.id}</span>
-                             <span class="font-bold text-gray-800">${t.summary}</span>
+                             <span class="px-2 py-0.5 bg-gray-100 text-gray-500 text-[10px] font-bold rounded uppercase">${t.category || '一般'}</span>
+                             <h4 class="font-bold text-gray-800 text-lg">${t.summary}</h4>
                         </div>
-                        <div class="text-xs text-gray-400">
-                             使用者: <span class="text-gray-600">${t.line_user_id}</span> • 建立時間: ${formatDateFull(t.created_at)}
+                        <div class="text-xs text-gray-400 flex items-center space-x-4">
+                             <span class="flex items-center"><i data-lucide="user" class="w-3 h-3 mr-1"></i> ${t.line_user_id.slice(-8)}...</span>
+                             <span class="flex items-center"><i data-lucide="phone" class="w-3 h-3 mr-1"></i> ${t.phone || '未提供電話'}</span>
+                             <span class="flex items-center"><i data-lucide="calendar" class="w-3 h-3 mr-1"></i> ${formatDate(t.created_at)}</span>
                         </div>
                     </div>
                 </div>
                 <div class="flex items-center space-x-6">
                     <div class="flex flex-col items-end">
-                        <span class="text-[10px] font-bold text-gray-400 uppercase mb-1">優先級</span>
-                        <span class="text-xs font-bold ${getPriorityColor(t.priority)}">${t.priority}</span>
-                    </div>
-                    <div class="flex flex-col items-end">
-                        <span class="text-[10px] font-bold text-gray-400 uppercase mb-1">狀態</span>
-                        <select onchange="updateTicketStatus('${t.id}', this.value)" class="text-xs font-bold bg-white border border-gray-100 rounded-lg px-2 py-1 outline-none">
-                            <option value="open" ${t.status === 'open' ? 'selected' : ''}>處理中</option>
-                            <option value="resolved" ${t.status === 'resolved' ? 'selected' : ''}>已解決</option>
-                            <option value="closed" ${t.status === 'closed' ? 'selected' : ''}>已關閉</option>
+                        <span class="text-[10px] font-bold text-gray-400 uppercase mb-1">狀態管理</span>
+                        <select onchange="updateTicketStatus('${t.id}', this.value)" class="text-xs font-bold bg-white border border-gray-100 rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="open" ${t.status === 'open' ? 'selected' : ''}>⏳ 處理中</option>
+                            <option value="resolved" ${t.status === 'resolved' ? 'selected' : ''}>✅ 已解決</option>
+                            <option value="closed" ${t.status === 'closed' ? 'selected' : ''}>🔒 已關閉</option>
                         </select>
                     </div>
                 </div>
             `;
-            container.appendChild(card);
+            list.appendChild(card);
         });
         lucide.createIcons();
     }
+}
+
+function filterTickets(status) {
+    state.ticketFilter = status;
+    const tabs = ['all', 'open', 'resolved'];
+    tabs.forEach(t => {
+        const btn = document.getElementById(`tab-ticket-${t}`);
+        if (!btn) return;
+        if (t === status) {
+            btn.className = "px-5 py-2 text-xs font-bold rounded-xl bg-blue-600 text-white shadow-sm transition-all focus:outline-none";
+        } else {
+            btn.className = "px-5 py-2 text-xs font-bold rounded-xl text-gray-500 hover:bg-gray-50 transition-all focus:outline-none";
+        }
+    });
+    loadTickets();
 }
 
 async function updateTicketStatus(ticketId, status) {
@@ -403,4 +453,5 @@ window.openFaqModal = openFaqModal;
 window.closeFaqModal = closeFaqModal;
 window.saveFaq = saveFaq;
 window.updateTicketStatus = updateTicketStatus;
+window.filterTickets = filterTickets;
 window.saveAllSettings = saveAllSettings;
