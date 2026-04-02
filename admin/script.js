@@ -21,6 +21,12 @@ window.onload = function () {
     lucide.createIcons();
     loadDashboard();
 
+    // Add reply listeners
+    const replyInput = document.getElementById('admin-reply-input');
+    if (replyInput) replyInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') sendAdminReply();
+    });
+
     // Add input listeners
     const ticketSearch = document.getElementById('ticket-search');
     if (ticketSearch) ticketSearch.addEventListener('input', () => loadTickets());
@@ -239,6 +245,7 @@ async function enableFaq(faqId) {
 async function loadConversations() {
     const res = await apiCall('member_list');
     if (res.success) {
+        state.conversations = res.data.items; // Store it!
         const container = document.getElementById('user-msg-list');
         container.innerHTML = "";
         res.data.items.forEach(user => {
@@ -272,6 +279,7 @@ async function loadUserDetail(lineUserId, name, mode, avatar) {
     document.getElementById('viewer-name').innerText = name;
     document.getElementById('viewer-id').innerText = lineUserId.slice(-8) + '...';
     document.getElementById('chat-header-actions').classList.remove('hidden');
+    document.getElementById('admin-reply-bar').classList.remove('hidden'); // Show reply box
 
     const badge = document.getElementById('viewer-mode-badge');
     badge.innerText = mode === 'human' ? '真人服務中' : 'AI 防護中';
@@ -328,11 +336,45 @@ async function toggleUserMode() {
         // Success! Reload the list and detail
         const itemsRes = await apiCall('member_list');
         if (itemsRes.success) {
+            state.conversations = itemsRes.data.items;
             const updatedUser = itemsRes.data.items.find(u => u.line_user_id === state.activeUserId);
             loadUserDetail(updatedUser.line_user_id, updatedUser.display_name, updatedUser.mode, updatedUser.picture_url);
         }
     } else {
         alert("切換失敗: " + res.message);
+    }
+}
+
+async function sendAdminReply() {
+    const input = document.getElementById('admin-reply-input');
+    const text = input.value.trim();
+    if (!text || !state.activeUserId) return;
+
+    // Use push API
+    const res = await apiCall('line_push_message', 'POST', {
+        lineUserId: state.activeUserId,
+        message: text
+    });
+
+    if (res.success) {
+        // Optimistically append message to the view
+        const body = document.getElementById('chat-viewer-body');
+        const div = document.createElement('div');
+        div.className = "flex justify-start"; // System/Bot role looks
+        div.innerHTML = `
+            <div class="max-w-[75%] p-3 rounded-2xl text-sm shadow-sm bg-blue-50 text-blue-800 border border-blue-100 rounded-bl-none">
+                <p class="whitespace-pre-wrap">${text}</p>
+                <div class="mt-1.5 flex items-center justify-between text-[9px] opacity-60">
+                    <span>ADMIN (REPLY)</span>
+                    <span>Just Now</span>
+                </div>
+            </div>
+        `;
+        body.appendChild(div);
+        body.scrollTop = body.scrollHeight;
+        input.value = "";
+    } else {
+        alert("發送回覆失敗: " + res.message);
     }
 }
 
@@ -501,4 +543,5 @@ window.saveFaq = saveFaq;
 window.updateTicketStatus = updateTicketStatus;
 window.filterTickets = filterTickets;
 window.toggleUserMode = toggleUserMode;
+window.sendAdminReply = sendAdminReply;
 window.saveAllSettings = saveAllSettings;
