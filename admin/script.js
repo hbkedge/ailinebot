@@ -65,10 +65,11 @@ async function apiCall(action, method = 'GET', data = {}) {
                 body: JSON.stringify({ action, data })
             });
         }
+        console.log(`API Call: ${action}`, data);
         return await response.json();
     } catch (err) {
         console.error("API Call Error:", err);
-        return { success: false, message: "Network error" };
+        return { success: false, message: "Network error: " + err.message };
     }
 }
 
@@ -334,6 +335,7 @@ function formatDateFull(iso) {
 
 // --- Settings Logic ---
 async function loadSettings() {
+    console.log("Loading settings...");
     const res = await apiCall('settings_list');
     const promptsRes = await apiCall('prompt_list');
 
@@ -371,3 +373,13 @@ async function saveAllSettings() {
         alert("部分設定儲存失敗。");
     }
 }
+
+// Explicitly bind to window to avoid issues with modules or scope
+window.showSection = showSection;
+window.editFaq = editFaq;
+window.deleteFaq = deleteFaq;
+window.openFaqModal = openFaqModal;
+window.closeFaqModal = closeFaqModal;
+window.saveFaq = saveFaq;
+window.updateTicketStatus = updateTicketStatus;
+window.saveAllSettings = saveAllSettings;
