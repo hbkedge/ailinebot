@@ -276,7 +276,14 @@ async function handleSendChat() {
         // Immediate polling to sync the view from DB
         await pollNewMessages();
     } else {
-        alert("發送失敗，請檢查網路連線。");
+        // If it's a known AI error, it should be logged in DB already, so poll will show it.
+        await pollNewMessages();
+        // If the polling didn't show anything new, then alert the raw error.
+        setTimeout(() => {
+            if (!state.chat.some(m => m.message_text.includes("技術問題") || m.message_text.includes("Error"))) {
+                alert("發送失敗: " + (res.message || "連線異常"));
+            }
+        }, 1000);
     }
 }
 
