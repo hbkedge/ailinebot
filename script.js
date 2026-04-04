@@ -132,7 +132,10 @@ function showPage(pageId) {
     // Polling Logic for Chat
     if (pageId === 'page-chat') {
         const msgContainer = document.getElementById("chat-messages");
-        if (msgContainer) msgContainer.scrollTop = msgContainer.scrollHeight;
+        if (msgContainer) {
+            msgContainer.innerHTML = ""; // Clear for fresh re-load from state/poll
+            state.chat = []; // Clear local track
+        }
         
         // Start polling if not already started
         if (!state.pollInterval) {
@@ -164,46 +167,33 @@ function updateBottomNav() {
 }
 
 // --- API Helpers ---
-async function apiGet(action, data = {}) {
+// --- API Helpers ---
+async function apiCall(action, data = {}) {
     try {
-        const query = new URLSearchParams({ action, ...data }).toString();
-        const response = await fetch(`${GAS_URL}?${query}`);
-        return await response.json();
-    } catch (err) {
-        console.error("API Get Error:", err);
-        return { success: false, message: "Network error" };
-    }
-}
-
-async function apiPost(action, data) {
-    try {
+        console.log(`[API Call] ${action}`, data);
         const response = await fetch(GAS_URL, {
-            method: "POST",
+            method: 'POST',
             body: JSON.stringify({ action, data })
         });
-        return await response.json();
+        const res = await response.json();
+        console.log(`[API Response] ${action}`, res);
+        return res;
     } catch (err) {
-        console.error("API POST Error:", err);
+        console.error(`[API Error] ${action}`, err);
         return { success: false, message: "Network error" };
     }
 }
 
-async function apiGet(action, params = {}) {
-    try {
-        const query = new URLSearchParams({ action, ...params }).toString();
-        const response = await fetch(`${GAS_URL}?${query}`);
-        return await response.json();
-    } catch (err) {
-        console.error("API GET Error:", err);
-        return { success: false, message: "Network error" };
-    }
-}
+// Alias for transition
+const apiPost = apiCall;
+const apiGet = apiCall;
 
 // --- FAQ logic ---
 async function loadHomeFaqs() {
-    const res = await apiGet("faq_list", { pageSize: 3 });
-    if (res.success && res.data.items) {
+    const res = await apiCall("faq_list", { pageSize: 3 });
+    if (res.success && res.data && res.data.items) {
         const container = document.getElementById("home-faq-list");
+        if (!container) return;
         container.innerHTML = "";
         res.data.items.forEach(faq => {
             const el = document.createElement("div");
@@ -220,10 +210,12 @@ async function loadHomeFaqs() {
 }
 
 async function loadFullFaqs() {
-    const search = document.getElementById("faq-search").value;
-    const res = await apiGet("faq_list", { keyword: search });
-    if (res.success && res.data.items) {
+    const searchInput = document.getElementById("faq-search");
+    const search = searchInput ? searchInput.value : "";
+    const res = await apiCall("faq_list", { keyword: search });
+    if (res.success && res.data && res.data.items) {
         const container = document.getElementById("faq-list");
+        if (!container) return;
         container.innerHTML = "";
         res.data.items.forEach(faq => {
             const el = document.createElement("div");
@@ -234,7 +226,7 @@ async function loadFullFaqs() {
                     ${faq.question}
                 </h3>
                 <p class="text-slate-600 text-sm leading-relaxed">
-                    ${faq.answer}
+                    ${faq.answer || "尚無答案"}
                 </p>
                 <div class="mt-4 pt-3 border-t border-slate-50 flex justify-end">
                     <button class="text-blue-600 text-xs font-bold" onclick="askAbout('${faq.question}')">問更多對話 &rarr;</button>
@@ -342,26 +334,26 @@ document.getElementById("contact-form").onsubmit = async (e) => {
 async function pollNewMessages() {
     if (!state.user || state.currentPage !== "page-chat") return;
 
-    const res = await apiGet("conversation_detail", { lineUserId: state.user.userId });
+    // Use apiPost instead of apiGet for better CORS reliability in GAS
+    const res = await apiPost("conversation_detail", { lineUserId: state.user.userId });
     if (res.success && res.data) {
-        const messages = res.data.reverse(); // Newest first from DB, reverse to oldest first
+        // conversation_detail returns items newest-first, so reverse to display oldest-first
+        const messages = res.data.reverse(); 
         const container = document.getElementById("chat-messages");
-        
-        // Find existing messages in DOM to avoid duplication
-        // For simplicity, we compare with state.lastChatId or just clear/refill
-        // To be safe, clear container AND refill based on ID tracking
         
         let hasNew = false;
         messages.forEach(msg => {
-            // Check if msg already exists in chat state or by ID
+            // Duplicate Check by ID
             if (!state.chat.find(m => m.id === msg.id)) {
                 state.chat.push(msg);
-                appendMessage(msg.role === 'user' ? 'user' : 'bot', msg.message_text);
+                
+                // Display user messages on right, Bot/Agent on left
+                const displayType = (msg.role === 'user') ? 'user' : 'bot';
+                appendMessage(displayType, msg.message_text);
                 hasNew = true;
             }
         });
 
-        // Scroll if new messages arrived
         if (hasNew) {
             container.scrollTop = container.scrollHeight;
         }
