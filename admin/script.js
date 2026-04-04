@@ -12,8 +12,10 @@ let state = {
     conversations: [],
     tickets: [],
     activeUserId: null,
+    activeChat: [], // Track current active chat messages
     loading: false,
-    ticketFilter: 'all'
+    ticketFilter: 'all',
+    pollInterval: null
 };
 
 // --- Initialization ---
@@ -274,13 +276,13 @@ async function loadConversations() {
 
 async function loadUserDetail(lineUserId, name, mode, avatar) {
     state.activeUserId = lineUserId;
+    state.activeChat = []; // Reset active chat track
 
     // Update Header
     document.getElementById('viewer-name').innerText = name;
     document.getElementById('viewer-id').innerText = lineUserId.slice(-8) + '...';
     document.getElementById('chat-header-actions').classList.remove('hidden');
 
-    // Explicitly show the reply bar using style to override any CSS conflicts
     const replyBar = document.getElementById('admin-reply-bar');
     if (replyBar) {
         replyBar.style.display = 'flex';
@@ -297,33 +299,69 @@ async function loadUserDetail(lineUserId, name, mode, avatar) {
     }
 
     loadConversations(); // Refresh list to show active highlight
+    
+    // Clear existing view
+    document.getElementById('chat-viewer-body').innerHTML = "";
 
-    const res = await apiCall('conversation_detail', 'GET', { lineUserId });
+    // Start polling for this user
+    if (state.pollInterval) clearInterval(state.pollInterval);
+    pollActiveChat(); // Immediate load
+    state.pollInterval = setInterval(pollActiveChat, 4000);
+}
+
+async function pollActiveChat() {
+    if (!state.activeUserId) return;
+
+    const res = await apiCall('conversation_detail', 'GET', { lineUserId: state.activeUserId });
     if (res.success) {
         const body = document.getElementById('chat-viewer-body');
-        body.innerHTML = "";
-
-        if (res.data.length === 0) {
-            body.innerHTML = `<p class="text-center text-gray-400 py-10">尚無對話記錄</p>`;
-            return;
-        }
-
-        res.data.reverse().forEach(msg => {
-            const div = document.createElement('div');
-            div.className = `flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`;
-            div.innerHTML = `
-                <div class="max-w-[75%] p-3 rounded-2xl text-sm shadow-sm ${msg.role === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-white text-gray-800 border border-gray-100 rounded-bl-none'}">
-                    <p class="whitespace-pre-wrap">${msg.message_text}</p>
-                    <div class="mt-1.5 flex items-center justify-between text-[9px] opacity-50">
-                        <span>${msg.role === 'user' ? 'CLIENT' : 'BOT'}</span>
-                        <span>${formatDate(msg.created_at)}</span>
-                    </div>
-                </div>
-            `;
-            body.appendChild(div);
+        const messages = res.data.reverse(); // DB returns newest first, reverse for display
+        
+        let hasNew = false;
+        messages.forEach(msg => {
+            // Duplicate Check
+            if (!state.activeChat.find(m => m.id === msg.id)) {
+                state.activeChat.push(msg);
+                renderMessage(body, msg);
+                hasNew = true;
+            }
         });
-        body.scrollTop = body.scrollHeight;
+
+        if (state.activeChat.length === 0) {
+            body.innerHTML = `<p class="text-center text-gray-400 py-10">尚無對話記錄</p>`;
+        } else if (hasNew) {
+            body.scrollTop = body.scrollHeight;
+        }
     }
+}
+
+function renderMessage(container, msg) {
+    const isUser = msg.role === 'user';
+    const div = document.createElement('div');
+    div.className = `flex ${isUser ? 'justify-end' : 'justify-start'}`;
+    
+    // Role styling
+    let roleLabel = 'BOT';
+    let bubbleClass = 'bg-white text-gray-800 border border-gray-100 rounded-bl-none';
+    
+    if (isUser) {
+        roleLabel = 'CLIENT';
+        bubbleClass = 'bg-blue-600 text-white rounded-br-none';
+    } else if (msg.role === 'agent') {
+        roleLabel = 'ADMIN';
+        bubbleClass = 'bg-blue-50 text-blue-800 border border-secondary rounded-bl-none';
+    }
+
+    div.innerHTML = `
+        <div class="max-w-[75%] p-3 rounded-2xl text-sm shadow-sm ${bubbleClass}">
+            <p class="whitespace-pre-wrap">${msg.message_text}</p>
+            <div class="mt-1.5 flex items-center justify-between text-[9px] opacity-60">
+                <span>${roleLabel}</span>
+                <span>${formatDate(msg.created_at)}</span>
+            </div>
+        </div>
+    `;
+    container.appendChild(div);
 }
 
 async function toggleUserMode() {
@@ -363,22 +401,9 @@ async function sendAdminReply() {
     });
 
     if (res.success) {
-        // Optimistically append message to the view
-        const body = document.getElementById('chat-viewer-body');
-        const div = document.createElement('div');
-        div.className = "flex justify-start"; // System/Bot role looks
-        div.innerHTML = `
-            <div class="max-w-[75%] p-3 rounded-2xl text-sm shadow-sm bg-blue-50 text-blue-800 border border-blue-100 rounded-bl-none">
-                <p class="whitespace-pre-wrap">${text}</p>
-                <div class="mt-1.5 flex items-center justify-between text-[9px] opacity-60">
-                    <span>ADMIN (REPLY)</span>
-                    <span>Just Now</span>
-                </div>
-            </div>
-        `;
-        body.appendChild(div);
-        body.scrollTop = body.scrollHeight;
         input.value = "";
+        // Refresh chat immediately to show the new message from DB logs
+        pollActiveChat();
     } else {
         alert("發送回覆失敗: " + res.message);
     }

@@ -12,8 +12,10 @@ let state = {
     user: null,
     settings: {},
     chat: [],
+    lastChatId: "", // Track last seen message
     currentPage: "page-loading",
-    loading: false
+    loading: false,
+    pollInterval: null
 };
 
 // --- Initialization ---
@@ -126,9 +128,23 @@ function showPage(pageId) {
     // Auto-load data for specific pages
     if (pageId === 'page-faq') loadFullFaqs();
     if (pageId === 'page-home') loadHomeFaqs();
+    
+    // Polling Logic for Chat
     if (pageId === 'page-chat') {
         const msgContainer = document.getElementById("chat-messages");
         if (msgContainer) msgContainer.scrollTop = msgContainer.scrollHeight;
+        
+        // Start polling if not already started
+        if (!state.pollInterval) {
+            state.pollInterval = setInterval(pollNewMessages, 2000);
+            pollNewMessages(); // Initial immediate load
+        }
+    } else {
+        // Stop polling if switching away from chat
+        if (state.pollInterval) {
+            clearInterval(state.pollInterval);
+            state.pollInterval = null;
+        }
     }
 
     // Update Bottom Nav UI
@@ -311,6 +327,35 @@ document.getElementById("contact-form").onsubmit = async (e) => {
         alert("送出失敗，請確認網路連線。");
     }
 };
+
+async function pollNewMessages() {
+    if (!state.user || state.currentPage !== "page-chat") return;
+
+    const res = await apiGet("conversation_detail", { lineUserId: state.user.userId });
+    if (res.success && res.data) {
+        const messages = res.data.reverse(); // Newest first from DB, reverse to oldest first
+        const container = document.getElementById("chat-messages");
+        
+        // Find existing messages in DOM to avoid duplication
+        // For simplicity, we compare with state.lastChatId or just clear/refill
+        // To be safe, clear container AND refill based on ID tracking
+        
+        let hasNew = false;
+        messages.forEach(msg => {
+            // Check if msg already exists in chat state or by ID
+            if (!state.chat.find(m => m.id === msg.id)) {
+                state.chat.push(msg);
+                appendMessage(msg.role === 'user' ? 'user' : 'bot', msg.message_text);
+                hasNew = true;
+            }
+        });
+
+        // Scroll if new messages arrived
+        if (hasNew) {
+            container.scrollTop = container.scrollHeight;
+        }
+    }
+}
 
 function showFaqDetail(faq) {
     alert(faq.answer);
