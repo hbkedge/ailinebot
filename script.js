@@ -164,6 +164,17 @@ function updateBottomNav() {
 }
 
 // --- API Helpers ---
+async function apiGet(action, data = {}) {
+    try {
+        const query = new URLSearchParams({ action, ...data }).toString();
+        const response = await fetch(`${GAS_URL}?${query}`);
+        return await response.json();
+    } catch (err) {
+        console.error("API Get Error:", err);
+        return { success: false, message: "Network error" };
+    }
+}
+
 async function apiPost(action, data) {
     try {
         const response = await fetch(GAS_URL, {
