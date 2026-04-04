@@ -14,6 +14,7 @@ let state = {
     activeUserId: null,
     activeChat: [], // Track current active chat messages
     loading: false,
+    sending: false, // Prevents duplicate admin replies
     ticketFilter: 'all',
     pollInterval: null
 };
@@ -390,9 +391,15 @@ async function toggleUserMode() {
 }
 
 async function sendAdminReply() {
+    if (state.sending) return; // Prevent double trigger
+    
     const input = document.getElementById('admin-reply-input');
     const text = input.value.trim();
     if (!text || !state.activeUserId) return;
+
+    state.sending = true;
+    input.value = ""; // Clear input immediately for snappy feel
+    input.disabled = true;
 
     // Use push API
     const res = await apiCall('line_push_message', 'POST', {
@@ -400,12 +407,16 @@ async function sendAdminReply() {
         message: text
     });
 
+    state.sending = false;
+    input.disabled = false;
+    input.focus();
+
     if (res.success) {
-        input.value = "";
         // Refresh chat immediately to show the new message from DB logs
         pollActiveChat();
     } else {
         alert("發送回覆失敗: " + res.message);
+        input.value = text; // Restore text on failure
     }
 }
 
