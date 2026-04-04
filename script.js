@@ -20,7 +20,39 @@ let state = {
 window.onload = function () {
     lucide.createIcons();
     initLiff();
+
+    // Bind handoff button
+    const handoffBtn = document.getElementById("btn-handoff");
+    if (handoffBtn) {
+        handoffBtn.onclick = handleHumanHandoff;
+    }
 };
+
+async function handleHumanHandoff() {
+    if (!state.user || state.loading) return;
+    
+    const confirmHandoff = confirm("即將為您轉接人工客服，轉接後 AI 將暫停自動回覆。確定要轉接嗎？");
+    if (!confirmHandoff) return;
+
+    state.loading = true;
+    const res = await apiPost("handoff_toggle", {
+        lineUserId: state.user.userId,
+        mode: "human"
+    });
+    state.loading = false;
+
+    if (res.success) {
+        appendMessage("system", "✅ 已為您轉接真人客服。客服人員將儘快在此與您對話，請稍候。");
+        // Update UI state
+        const statusEl = document.querySelector(".text-green-500");
+        if (statusEl) {
+            statusEl.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-orange-500 mr-1"></span>真人服務中';
+            statusEl.className = "flex items-center text-[10px] text-orange-500";
+        }
+    } else {
+        alert("轉接失敗，請稍後再試。");
+    }
+}
 
 async function initLiff() {
     try {
@@ -222,7 +254,7 @@ async function handleSendChat() {
     document.getElementById("chat-loading").classList.add("hidden");
 
     if (res.success) {
-        const answer = res.data.answer || res.data.reply || "我現在不知道該怎麼回答。";
+        const answer = res.data.reply || res.data.display_reply || "我現在不知道該怎麼回答。";
         appendMessage("bot", answer);
         if (res.data.handoff) {
             appendMessage("system", "💡 轉接中：AI 小助手似乎回不了這題，已為您標註客服，如需立即處理可點擊「轉人工」。");
