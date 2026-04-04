@@ -257,14 +257,14 @@ async function handleSendChat() {
     if (!message || state.loading) return;
 
     input.value = "";
-    appendMessage("user", message);
-
     state.loading = true;
-    document.getElementById("chat-loading").classList.remove("hidden");
     const container = document.getElementById("chat-messages");
+    
+    // UI Loading state
+    document.getElementById("chat-loading").classList.remove("hidden");
     container.scrollTop = container.scrollHeight;
 
-    const res = await apiPost("chat_send", {
+    const res = await apiCall("chat_send", {
         lineUserId: state.user ? state.user.userId : "GUEST_UNKNOWN",
         message: message
     });
@@ -273,13 +273,10 @@ async function handleSendChat() {
     document.getElementById("chat-loading").classList.add("hidden");
 
     if (res.success) {
-        const answer = res.data.reply || res.data.display_reply || "我現在不知道該怎麼回答。";
-        appendMessage("bot", answer);
-        if (res.data.handoff) {
-            appendMessage("system", "💡 轉接中：AI 小助手似乎回不了這題，已為您標註客服，如需立即處理可點擊「轉人工」。");
-        }
+        // Immediate polling to sync the view from DB
+        await pollNewMessages();
     } else {
-        appendMessage("bot", "抱歉，我現在有點不舒服（連線異常），請稍後再試。");
+        alert("發送失敗，請檢查網路連線。");
     }
 }
 
@@ -334,30 +331,66 @@ document.getElementById("contact-form").onsubmit = async (e) => {
 async function pollNewMessages() {
     if (!state.user || state.currentPage !== "page-chat") return;
 
-    // Use apiPost instead of apiGet for better CORS reliability in GAS
-    const res = await apiPost("conversation_detail", { lineUserId: state.user.userId });
-    if (res.success && res.data) {
-        // conversation_detail returns items newest-first, so reverse to display oldest-first
-        const messages = res.data.reverse(); 
-        const container = document.getElementById("chat-messages");
-        
-        let hasNew = false;
-        messages.forEach(msg => {
-            // Duplicate Check by ID
-            if (!state.chat.find(m => m.id === msg.id)) {
-                state.chat.push(msg);
-                
-                // Display user messages on right, Bot/Agent on left
-                const displayType = (msg.role === 'user') ? 'user' : 'bot';
-                appendMessage(displayType, msg.message_text);
-                hasNew = true;
+    try {
+        const res = await apiCall("conversation_detail", { lineUserId: state.user.userId });
+        if (res.success && Array.isArray(res.data)) {
+            const dbMessages = res.data.reverse(); // 將 DB 的「新到舊」轉為「舊到新」
+            
+            // 只有當訊息數目變動或最後一則 ID 不同時才重新渲染
+            const lastDbMsg = dbMessages[dbMessages.length - 1];
+            const lastStateMsg = state.chat[state.chat.length - 1];
+            
+            if (dbMessages.length !== state.chat.length || (lastDbMsg && lastStateMsg && lastDbMsg.id !== lastStateMsg.id)) {
+                console.log("[Chat Sync] New messages found, re-rendering...");
+                state.chat = dbMessages;
+                renderChatList();
             }
-        });
-
-        if (hasNew) {
-            container.scrollTop = container.scrollHeight;
         }
+    } catch (err) {
+        console.error("Poll error:", err);
     }
+}
+
+function renderChatList() {
+    const container = document.getElementById("chat-messages");
+    if (!container) return;
+    
+    container.innerHTML = "";
+    state.chat.forEach(msg => {
+        // 判斷角色類型：user 為右側，bot/agent 為左側
+        const type = (msg.role === 'user') ? 'user' : 'bot';
+        const displayRole = (msg.role === 'agent') ? '客服真人' : (msg.role === 'user' ? 'ME' : 'AI Assistant');
+        
+        const time = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const div = document.createElement("div");
+        
+        if (type === "user") {
+            div.className = "flex justify-end";
+            div.innerHTML = `
+                <div class="max-w-[80%] bg-blue-600 text-white p-4 rounded-2xl rounded-tr-none shadow-sm">
+                    <p class="text-sm leading-relaxed">${msg.message_text}</p>
+                    <div class="flex items-center justify-end mt-1 opacity-50 text-[10px]">
+                        <span>${time}</span>
+                    </div>
+                </div>
+            `;
+        } else {
+            div.className = "flex justify-start";
+            div.innerHTML = `
+                <div class="max-w-[80%] bg-white p-4 rounded-2xl rounded-tl-none shadow-sm border border-slate-100">
+                    <p class="text-sm text-slate-700 leading-relaxed">${msg.message_text}</p>
+                    <div class="flex items-center justify-between mt-1 opacity-50 text-[10px] text-slate-400">
+                        <span class="font-bold">${displayRole}</span>
+                        <span>${time}</span>
+                    </div>
+                </div>
+            `;
+        }
+        container.appendChild(div);
+    });
+    
+    // 自動滾動到底部
+    container.scrollTop = container.scrollHeight;
 }
 
 function showFaqDetail(faq) {
